@@ -1,0 +1,29 @@
+{
+  "name": "signfix",
+  "private": true,
+  "version": "1.0.0",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "build": "vite build",
+    "test": "vitest run",
+    "server": "node server/index.js"
+  },
+  "dependencies": {
+    "@vitejs/plugin-react": "latest",
+    "vite": "latest",
+    "react": "latest",
+    "react-dom": "latest",
+    "lucide-react": "latest",
+    "express": "latest",
+    "cors": "latest",
+    "helmet": "latest",
+    "mysql2": "latest",
+    "jsonwebtoken": "latest",
+    "bcryptjs": "latest",
+    "zod": "latest",
+    "multer": "latest"
+  },
+  "devDependencies": {
+    "vitest": "latest"
+  }
+}

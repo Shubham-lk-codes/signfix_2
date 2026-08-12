@@ -1,0 +1,12 @@
+node_modules/
+dist/
+.env
+server/uploads/*
+!server/uploads/.gitkeep
+.dart_tool/
+.flutter-plugins*
+.packages
+build/
+.idea/
+*.iml
+.DS_Store

@@ -1,0 +1,21 @@
+name: signfix_customer
+description: SignFix customer ordering and service application.
+publish_to: none
+version: 1.0.0+1
+environment:
+  sdk: '>=3.3.0 <4.0.0'
+dependencies:
+  flutter:
+    sdk: flutter
+  http: ^1.2.2
+  image_picker: ^1.1.2
+  geolocator: ^13.0.1
+  shared_preferences: ^2.3.2
+  intl: ^0.19.0
+  flutter_svg: ^2.0.10+1
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/branding/signfix-logo.svg
+flutter:
+  uses-material-design: true
