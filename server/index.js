@@ -6,6 +6,7 @@ const bcrypt = require('bcryptjs');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+require('dotenv').config();
 const database = require('./database');
 
 const app = express();
@@ -14,7 +15,6 @@ const uploadDir = path.join(__dirname, 'uploads');
 fs.mkdirSync(uploadDir, { recursive: true });
 app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
 app.use(cors({ origin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',') : true }));
-app.use(cors());
 app.use(express.json({ limit: '2mb' }));
 app.use('/uploads', express.static(uploadDir));
 const upload = multer({ dest: uploadDir, limits: { fileSize: 8 * 1024 * 1024 }, fileFilter: (_, file, cb) => cb(null, /image|pdf/.test(file.mimetype)) });
@@ -51,12 +51,6 @@ app.post('/api/auth/login', async (req, res) => {
   if (!user || !(await bcrypt.compare(password, user.passwordHash))) return res.status(401).json({ error: 'Invalid credentials' });
   if (portal === 'technician' && user.role !== 'technician') return res.status(403).json({ error: 'Technician access required' });
   res.json({ token: jwt.sign({ id: user.id, role: user.role, email: user.email }, SECRET, { expiresIn: '8h' }), user: { email: user.email, role: user.role } });
-app.get('/api/health', (_, res) => res.json({ status: 'ok', service: 'signfix-api' }));
-app.post('/api/auth/login', async (req, res) => {
-  const { email = '', password = '', portal } = req.body;
-  if (!email || !(await bcrypt.compare(password, passwordHash))) return res.status(401).json({ error: 'Invalid credentials' });
-  const role = portal === 'technician' || email.startsWith('tech') ? 'technician' : email.startsWith('customer') ? 'customer' : 'super_admin';
-  res.json({ token: jwt.sign({ id: role === 'technician' ? 7 : 1, role, email }, SECRET, { expiresIn: '8h' }), user: { email, role } });
 });
 app.get('/api/products', auth(), (_, res) => res.json({ data: products }));
 app.post('/api/calculator', auth(), (req, res) => {
@@ -76,10 +70,6 @@ app.get('/api/orders', auth(), async (req, res, next) => { try { const data = da
 app.post('/api/orders', auth(['customer', 'super_admin']), async (req, res, next) => { try { if (!(req.body.length > 0 && req.body.width > 0 && req.body.quantity > 0)) return res.status(422).json({ error: 'Valid order dimensions and quantity are required' }); const orderNo = id('SB-ORD'); const order = database.isConfigured() ? await database.createOrder(req.user, req.body, orderNo) : { ...req.body, id: orderNo, createdBy: req.user.email, status: 'under_review', createdAt: new Date().toISOString() }; if (!database.isConfigured()) orders.unshift(order); res.status(201).json(order); } catch (error) { next(error); } });
 app.get('/api/services', auth(), async (req, res, next) => { try { const data = database.isConfigured() ? await database.listServices(req.user) : services.filter((s) => req.user.role !== 'customer' || s.createdBy === req.user.email); res.json({ data, page: 1, total: data.length }); } catch (error) { next(error); } });
 app.post('/api/services', auth(['customer', 'super_admin']), async (req, res, next) => { try { if (!req.body.category || !req.body.description) return res.status(422).json({ error: 'Category and description are required' }); const ticketNo = id('SB-SRV'); const ticket = database.isConfigured() ? await database.createService(req.user, req.body, ticketNo) : { ...req.body, id: ticketNo, createdBy: req.user.email, status: 'submitted', createdAt: new Date().toISOString(), message: 'Your service request has been submitted.' }; if (!database.isConfigured()) services.unshift(ticket); res.status(201).json(ticket); } catch (error) { next(error); } });
-app.get('/api/orders', auth(), (req, res) => res.json({ data: orders.filter((o) => req.user.role !== 'customer' || o.createdBy === req.user.email), page: 1, total: orders.length }));
-app.post('/api/orders', auth(), (req, res) => { const order = { ...req.body, id: id('SB-ORD'), createdBy: req.user.email, status: 'under_review', createdAt: new Date().toISOString() }; orders.unshift(order); res.status(201).json(order); });
-app.get('/api/services', auth(), (req, res) => res.json({ data: services.filter((s) => req.user.role !== 'customer' || s.createdBy === req.user.email), page: 1, total: services.length }));
-app.post('/api/services', auth(), (req, res) => { const ticket = { ...req.body, id: id('SB-SRV'), createdBy: req.user.email, status: 'submitted', createdAt: new Date().toISOString(), message: 'Your service request has been submitted.' }; services.unshift(ticket); res.status(201).json(ticket); });
 app.get('/api/jobs', auth(['technician', 'super_admin']), (_, res) => res.json({ data: jobs }));
 const allowedTransitions = { assigned: 'accepted', accepted: 'on_the_way', on_the_way: 'reached_location', reached_location: 'inspection_started', inspection_started: 'work_in_progress', work_in_progress: 'completed' };
 app.patch('/api/jobs/:id/status', auth(['technician', 'super_admin']), (req, res) => { const job = jobs.find((j) => j.id === req.params.id); if (!job) return res.status(404).json({ error: 'Job not found' }); if (allowedTransitions[job.status] !== req.body.status) return res.status(409).json({ error: `Job must move from ${job.status} to ${allowedTransitions[job.status]}` }); if (req.body.status === 'completed' && !/^\d{4,6}$/.test(req.body.customerOtp || '')) return res.status(422).json({ error: 'Valid customer OTP required' }); Object.assign(job, req.body, { updatedAt: new Date().toISOString() }); res.json(job); });
@@ -95,8 +85,5 @@ app.get('/api/admin/dashboard', auth(['super_admin']), async (_, res, next) => {
 });
 app.use((_, res) => res.status(404).json({ error: 'Route not found' }));
 app.use((err, _, res, __) => res.status(err.code === 'LIMIT_FILE_SIZE' ? 413 : (err.status || 500)).json({ error: err.code === 'LIMIT_FILE_SIZE' ? 'File exceeds 8 MB' : (process.env.NODE_ENV === 'production' ? 'Unexpected server error' : err.message) }));
-app.get('/api/admin/dashboard', auth(['super_admin']), (_, res) => res.json({ customers: 1248, newOrders: orders.length, activeServices: services.length, technicians: 18, pendingJobs: jobs.filter((j) => j.status !== 'completed').length, recentOrders: orders.slice(0, 5), recentServices: services.slice(0, 5) }));
-app.use((_, res) => res.status(404).json({ error: 'Route not found' }));
-app.use((err, _, res, __) => res.status(err.code === 'LIMIT_FILE_SIZE' ? 413 : 500).json({ error: err.code === 'LIMIT_FILE_SIZE' ? 'File exceeds 8 MB' : (process.env.NODE_ENV === 'production' ? 'Unexpected server error' : err.message) }));
 if (require.main === module) app.listen(process.env.PORT || 4000, () => console.log('SignFix API listening on port 4000'));
 module.exports = app;

@@ -40,11 +40,12 @@ Configure `JWT_SECRET`, database credentials, object storage, maps, FCM, and the
 
 The supplied SignFix artwork is stored once as the text-based `branding/signfix-logo.svg` and reused by the admin favicon/header and both Flutter apps. The app-local and public asset entries are symbolic links, so Git reviews no longer contain unsupported binary image diffs. Native Android/iOS projects should use this SVG as their launcher-icon source during platform packaging.
 
-## Database setup
+## Neon database setup
 
 1. Copy `.env.example` to `.env` and change every secret.
-2. Run `docker compose up -d mysql`; MySQL automatically applies `database/schema.sql` and `database/seed.sql` on the first clean volume.
-3. Start the API with `npm run server`. When `DB_HOST` is set, orders and service requests use MySQL transactions; without it, the API uses an explicitly development-only in-memory store.
-4. Check `GET /api/health`: `database.mode` must be `mysql` before production deployment.
+2. Create a Neon project and copy its pooled connection string to `DATABASE_URL` in `.env` (keep `sslmode=require`).
+3. Run `database/schema.sql` and then `database/seed.sql` in the Neon SQL Editor.
+4. Start the API with `npm run server`. Without `DATABASE_URL`, the API uses its development-only in-memory store.
+5. Check `GET /api/health`: `database.mode` must be `neon-postgres` before production deployment.
 
-To reinitialize local data, run `docker compose down -v` and then `docker compose up -d mysql`. Never use the checked-in demo credentials or local Docker passwords in production.
+Never commit `.env` or use the demo credentials in production.
