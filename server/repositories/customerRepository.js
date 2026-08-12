@@ -1,0 +1,72 @@
+const bcrypt = require('bcryptjs');
+const database = require('../database');
+
+const pool = () => database.getPool();
+const activeOrder = "NOT IN ('completed','cancelled','closed')";
+const activeService = "NOT IN ('completed','customer_confirmed','closed','cancelled')";
+
+async function customerForUser(userId, client = pool()) {
+  const { rows } = await client.query('SELECT c.id,c.user_id FROM customers c WHERE c.user_id=$1', [userId]);
+  if (!rows[0]) throw Object.assign(new Error('Customer profile not found'), { status: 404 });
+  return rows[0];
+}
+
+async function dashboard(userId) {
+  const customer = await customerForUser(userId);
+  const { rows } = await pool().query(`SELECT
+    (SELECT row_to_json(x) FROM (SELECT order_no AS id,status,estimated_price AS "estimatedPrice",created_at AS "createdAt" FROM orders WHERE customer_id=$1 AND status ${activeOrder} ORDER BY created_at DESC LIMIT 1) x) AS "activeOrder",
+    (SELECT row_to_json(x) FROM (SELECT ticket_no AS id,status,category,created_at AS "createdAt" FROM service_tickets WHERE customer_id=$1 AND status ${activeService} ORDER BY created_at DESC LIMIT 1) x) AS "activeService",
+    (SELECT row_to_json(x) FROM (SELECT q.quotation_no AS "quotationNo",o.order_no AS "orderNo",q.final_amount AS "finalAmount",q.status,q.valid_until AS "validUntil" FROM quotations q JOIN orders o ON o.id=q.order_id WHERE o.customer_id=$1 ORDER BY q.id DESC LIMIT 1) x) AS "recentQuotation",
+    (SELECT COUNT(*)::int FROM notifications WHERE user_id=$2 AND read_at IS NULL) AS "unreadNotifications"`, [customer.id, userId]);
+  const recent = await pool().query(`SELECT * FROM ((SELECT 'order' type,order_no id,status,created_at FROM orders WHERE customer_id=$1) UNION ALL (SELECT 'service',ticket_no,status,created_at FROM service_tickets WHERE customer_id=$1)) a ORDER BY created_at DESC LIMIT 10`, [customer.id]);
+  return { ...rows[0], recentActivity: recent.rows, actions: ['ORDER_NEW_SIGN_BOARD', 'REQUEST_SIGN_BOARD_SERVICE', 'AI_SUPPORT', 'DESIGN_DEMO'] };
+}
+
+async function profile(userId) {
+  const { rows } = await pool().query(`SELECT u.id,u.name,u.mobile,u.email,u.status,u.verified_at AS "verifiedAt",c.company_name AS "companyName",c.address FROM users u JOIN customers c ON c.user_id=u.id WHERE u.id=$1`, [userId]);
+  if (!rows[0]) throw Object.assign(new Error('Customer profile not found'), { status: 404 });
+  const addresses = await pool().query('SELECT id,label,address_line AS "addressLine",city,state,pincode,latitude,longitude,is_default AS "isDefault" FROM customer_addresses WHERE customer_id=(SELECT id FROM customers WHERE user_id=$1) ORDER BY is_default DESC,id DESC', [userId]);
+  return { ...rows[0], savedAddresses: addresses.rows };
+}
+
+async function updateProfile(userId, data) {
+  const client = await pool().connect();
+  try { await client.query('BEGIN');
+    await client.query('UPDATE users SET name=COALESCE($2,name),mobile=COALESCE($3,mobile),updated_at=NOW() WHERE id=$1', [userId, data.name, data.mobile]);
+    await client.query('UPDATE customers SET company_name=COALESCE($2,company_name),address=COALESCE($3::jsonb,address) WHERE user_id=$1', [userId, data.companyName, data.address ? JSON.stringify(data.address) : null]);
+    await client.query('COMMIT'); return profile(userId);
+  } catch (e) { await client.query('ROLLBACK'); throw e; } finally { client.release(); }
+}
+
+async function addAddress(userId, data) {
+  const customer = await customerForUser(userId); const client = await pool().connect();
+  try { await client.query('BEGIN'); if (data.isDefault) await client.query('UPDATE customer_addresses SET is_default=FALSE WHERE customer_id=$1', [customer.id]);
+    const { rows } = await client.query(`INSERT INTO customer_addresses(customer_id,label,address_line,city,state,pincode,latitude,longitude,is_default) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id,label,address_line AS "addressLine",city,state,pincode,latitude,longitude,is_default AS "isDefault"`, [customer.id,data.label,data.addressLine,data.city,data.state,data.pincode,data.latitude,data.longitude,data.isDefault]);
+    await client.query('COMMIT'); return rows[0];
+  } catch(e) { await client.query('ROLLBACK'); throw e; } finally { client.release(); }
+}
+
+async function deleteAddress(userId, id) { const customer = await customerForUser(userId); const result = await pool().query('DELETE FROM customer_addresses WHERE id=$1 AND customer_id=$2', [id,customer.id]); if (!result.rowCount) throw Object.assign(new Error('Address not found'),{status:404}); }
+
+async function order(userId, orderNo) {
+  const { rows } = await pool().query(`SELECT o.order_no AS id,o.specifications,o.estimated_price AS "estimatedPrice",o.status,o.created_at AS "createdAt" FROM orders o JOIN customers c ON c.id=o.customer_id WHERE c.user_id=$1 AND o.order_no=$2`, [userId,orderNo]);
+  if (!rows[0]) throw Object.assign(new Error('Order not found'),{status:404}); return { ...rows[0], ...rows[0].specifications };
+}
+
+async function quotations(userId) { const { rows } = await pool().query(`SELECT q.id,q.quotation_no AS "quotationNo",o.order_no AS "orderNo",o.specifications AS "productDetails",q.subtotal,q.discount,q.gst,q.final_amount AS "finalAmount",q.terms,q.valid_until AS "validUntil",q.status FROM quotations q JOIN orders o ON o.id=q.order_id JOIN customers c ON c.id=o.customer_id WHERE c.user_id=$1 ORDER BY q.id DESC`,[userId]); return rows; }
+async function quotation(userId, quotationNo) { const rows = await quotations(userId); const found=rows.find(x=>x.quotationNo===quotationNo); if(!found) throw Object.assign(new Error('Quotation not found'),{status:404}); return found; }
+async function quotationAction(userId, quotationNo, action, notes) { const allowed={approve:'approved',request_changes:'changes_requested'}; const status=allowed[action]; if(!status) throw Object.assign(new Error('Unsupported quotation action'),{status:422}); const { rows }=await pool().query(`UPDATE quotations q SET status=$3,updated_at=NOW() FROM orders o,customers c WHERE q.order_id=o.id AND o.customer_id=c.id AND c.user_id=$1 AND q.quotation_no=$2 AND q.status NOT IN ('expired','cancelled') RETURNING q.quotation_no AS "quotationNo",q.status`,[userId,quotationNo,status]); if(!rows[0]) throw Object.assign(new Error('Quotation not found or cannot be changed'),{status:404}); await pool().query('INSERT INTO audit_logs(user_id,action,entity_type,metadata) VALUES($1,$2,$3,$4::jsonb)',[userId,`quotation.${action}`,'quotation',JSON.stringify({quotationNo,notes})]); return rows[0]; }
+
+async function serviceTracking(userId,ticketNo){ const {rows}=await pool().query(`SELECT s.ticket_no AS id,s.category,s.description,s.location,s.photos,s.priority,s.status,s.created_at AS "createdAt",j.id AS "jobId",j.scheduled_at AS "estimatedVisit",j.evidence,tu.name AS "technicianName",tu.mobile AS "technicianContact" FROM service_tickets s JOIN customers c ON c.id=s.customer_id LEFT JOIN technician_jobs j ON j.ticket_id=s.id LEFT JOIN technicians t ON t.id=j.technician_id LEFT JOIN users tu ON tu.id=t.user_id WHERE c.user_id=$1 AND s.ticket_no=$2`,[userId,ticketNo]); if(!rows[0]) throw Object.assign(new Error('Service request not found'),{status:404}); const history=rows[0].jobId?(await pool().query('SELECT status,notes,created_at AS "createdAt" FROM job_status_history WHERE job_id=$1 ORDER BY created_at',[rows[0].jobId])).rows:[]; return {...rows[0],timeline:history}; }
+
+async function notifications(userId){ return (await pool().query('SELECT id,channel,title,body,read_at AS "readAt",created_at AS "createdAt" FROM notifications WHERE user_id=$1 ORDER BY created_at DESC LIMIT 100',[userId])).rows; }
+async function readNotification(userId,id){ const {rows}=await pool().query('UPDATE notifications SET read_at=COALESCE(read_at,NOW()) WHERE id=$1 AND user_id=$2 RETURNING id,read_at AS "readAt"',[id,userId]); if(!rows[0]) throw Object.assign(new Error('Notification not found'),{status:404}); return rows[0]; }
+
+async function createDesign(userId,data){const customer=await customerForUser(userId); let orderId=null;if(data.orderNo){const result=await pool().query('SELECT id FROM orders WHERE order_no=$1 AND customer_id=$2',[data.orderNo,customer.id]);orderId=result.rows[0]?.id;if(!orderId)throw Object.assign(new Error('Order not found'),{status:404});}const {rows}=await pool().query(`INSERT INTO design_requests(customer_id,order_id,requirements,status) VALUES($1,$2,$3::jsonb,'requested') RETURNING id,status,requirements,created_at AS "createdAt"`,[customer.id,orderId,JSON.stringify(data)]);return {...rows[0],disclaimer:'Concept/mockup only; not final production artwork.'};}
+async function updateDesign(userId,id,action,notes){const statuses={regenerate:'regeneration_requested',request_modification:'modification_requested',use:'selected',send_to_admin:'sent_to_admin'};const status=statuses[action];if(!status)throw Object.assign(new Error('Unsupported design action'),{status:422});const {rows}=await pool().query(`UPDATE design_requests d SET status=$3,requirements=requirements||$4::jsonb,updated_at=NOW() FROM customers c WHERE d.customer_id=c.id AND c.user_id=$1 AND d.id=$2 RETURNING d.id,d.status,d.requirements`,[userId,id,status,JSON.stringify({customerNotes:notes||null})]);if(!rows[0])throw Object.assign(new Error('Design request not found'),{status:404});return {...rows[0],disclaimer:'Concept/mockup only; not final production artwork.'};}
+
+async function saveConversation(userId,message,response,escalate){const {rows}=await pool().query(`INSERT INTO ai_conversations(user_id,question,response,escalation_status) VALUES($1,$2,$3,$4) RETURNING id,created_at AS "createdAt"`,[userId,message,response,escalate?'requested':'none']);if(escalate)await pool().query('INSERT INTO support_escalations(conversation_id,user_id,reason) VALUES($1,$2,$3)',[rows[0].id,userId,message]);return rows[0];}
+async function conversations(userId){return (await pool().query('SELECT id,question,response,escalation_status AS "escalationStatus",created_at AS "createdAt" FROM ai_conversations WHERE user_id=$1 ORDER BY id DESC LIMIT 100',[userId])).rows;}
+async function createLead(userId,data){const customer=await customerForUser(userId);const {rows}=await pool().query(`INSERT INTO ai_leads(customer_id,requirement,product,estimated_budget,contact) VALUES($1,$2,$3,$4,$5) RETURNING id,status,created_at AS "createdAt"`,[customer.id,data.requirement,data.product,data.budget,data.contact]);return rows[0];}
+
+module.exports={dashboard,profile,updateProfile,addAddress,deleteAddress,order,quotations,quotation,quotationAction,serviceTracking,notifications,readNotification,createDesign,updateDesign,saveConversation,conversations,createLead};

@@ -41,6 +41,8 @@ Use `localhost` for desktop/iOS simulator and the development machine's LAN addr
 
 Configure `JWT_SECRET`, database credentials, object storage, maps, FCM, and the LLM provider through environment variables before production deployment.
 
+Customer mobile integration endpoints and payload flow are documented in [`docs/customer-api.md`](docs/customer-api.md).
+
 ## Brand assets
 
 The supplied SignFix artwork is stored once as the text-based `branding/signfix-logo.svg` and reused by the admin favicon/header and both Flutter apps. The app-local and public asset entries are symbolic links, so Git reviews no longer contain unsupported binary image diffs. Native Android/iOS projects should use this SVG as their launcher-icon source during platform packaging.

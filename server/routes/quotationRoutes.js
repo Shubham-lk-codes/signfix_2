@@ -1,0 +1,6 @@
+const router=require('express').Router();const {z}=require('zod');const validate=require('../middleware/validate');const {authenticate,authorize}=require('../middleware/auth');const controller=require('../controllers/quotationController');
+router.use(authenticate,authorize('super_admin','admin','sales_manager'));
+const item=z.object({description:z.string().min(1),quantity:z.coerce.number().positive().default(1),unitPrice:z.coerce.number().nonnegative(),amount:z.coerce.number().nonnegative()});
+router.post('/',validate(z.object({orderNo:z.string().min(1),subtotal:z.coerce.number().nonnegative(),discount:z.coerce.number().nonnegative().default(0),gst:z.coerce.number().nonnegative(),finalAmount:z.coerce.number().nonnegative(),terms:z.string().optional(),validUntil:z.coerce.date(),items:z.array(item).optional()})),controller.create);
+router.patch('/:id',validate(z.object({subtotal:z.coerce.number().nonnegative().optional(),discount:z.coerce.number().nonnegative().optional(),gst:z.coerce.number().nonnegative().optional(),finalAmount:z.coerce.number().nonnegative().optional(),terms:z.string().optional(),validUntil:z.coerce.date().optional(),status:z.enum(['draft','sent','expired','cancelled']).optional()})),controller.update);
+module.exports=router;

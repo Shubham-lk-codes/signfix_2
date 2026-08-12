@@ -1,0 +1,29 @@
+const router=require('express').Router();
+const {z}=require('zod');
+const controller=require('../controllers/customerController');
+const validate=require('../middleware/validate');
+const {authenticate,authorize}=require('../middleware/auth');
+router.use(authenticate,authorize('customer'));
+
+const address=z.object({label:z.string().max(60).default('Other'),addressLine:z.string().min(3),city:z.string().min(2).optional(),state:z.string().min(2).optional(),pincode:z.string().regex(/^\d{5,10}$/).optional(),latitude:z.coerce.number().min(-90).max(90).optional(),longitude:z.coerce.number().min(-180).max(180).optional(),isDefault:z.boolean().default(false)});
+router.get('/dashboard',controller.dashboard);
+router.get('/profile',controller.profile);
+router.patch('/profile',validate(z.object({name:z.string().min(2).max(120).optional(),mobile:z.string().min(8).max(20).optional(),companyName:z.string().min(2).max(160).optional(),address:z.record(z.any()).optional()})),controller.updateProfile);
+router.post('/addresses',validate(address),controller.addAddress);
+router.delete('/addresses/:id',controller.deleteAddress);
+router.get('/orders/:id',controller.order);
+router.get('/quotations',controller.quotations);
+router.get('/quotations/:id',controller.quotation);
+router.post('/quotations/:id/action',validate(z.object({action:z.enum(['approve','request_changes']),notes:z.string().max(1000).optional()})),controller.quotationAction);
+router.get('/quotations/:id/pdf',controller.quotationPdf);
+router.get('/services/:id/tracking',controller.serviceTracking);
+router.get('/notifications',controller.notifications);
+router.patch('/notifications/:id/read',controller.readNotification);
+
+const design=z.object({orderNo:z.string().optional(),signType:z.string().min(1),businessText:z.string().min(1),style:z.string().optional(),lighting:z.string().optional(),background:z.string().optional(),storefrontUrl:z.string().optional(),notes:z.string().max(2000).optional()});
+router.post('/designs',validate(design),controller.createDesign);
+router.post('/designs/:id/action',validate(z.object({action:z.enum(['regenerate','request_modification','use','send_to_admin']),notes:z.string().max(2000).optional()})),controller.designAction);
+router.post('/ai/chat',validate(z.object({message:z.string().min(1).max(4000)})),controller.aiChat);
+router.get('/ai/conversations',controller.conversations);
+router.post('/ai/leads',validate(z.object({requirement:z.string().min(3),product:z.string().optional(),budget:z.coerce.number().nonnegative().optional(),contact:z.string().min(5)})),controller.createLead);
+module.exports=router;
