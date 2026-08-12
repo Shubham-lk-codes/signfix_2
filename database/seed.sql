@@ -1,6 +1,12 @@
 INSERT INTO roles(name) VALUES ('super_admin'),('admin'),('sales_manager'),('service_manager'),('technician_manager'),('support_agent'),('customer'),('technician') ON CONFLICT (name) DO NOTHING;
--- All demo passwords are SignFix@123. Replace these users before production use.
-INSERT INTO users(role_id,name,email,mobile,password_hash) SELECT r.id,v.name,v.email,v.mobile,'$2b$12$algQbhUt2jA5RsqmJcZH4uyFY7md0qhX52VncSrJOyIMSq.G4.X3m' FROM (VALUES ('super_admin','Arun Kumar','admin@signfix.in','9999999999'),('customer','Demo Customer','customer@signfix.in','9876543210'),('technician','Demo Technician','tech@signfix.in','9812345678')) AS v(role,name,email,mobile) JOIN roles r ON r.name=v.role ON CONFLICT (email) DO NOTHING;
+-- All demo passwords are `SignFix@123` (the period after this sentence is not part of the password).
+-- bcrypt hash for the documented development password: SignFix@123.
+-- The conflict update also repairs demo users created by an older broken seed.
+INSERT INTO users(role_id,name,email,mobile,password_hash)
+SELECT r.id,v.name,v.email,v.mobile,'$2b$10$N7YMUi7f4qo0wnpExQagQuR7tpjUD3rcOabitmozbImGYkOhlSYW6'
+FROM (VALUES ('super_admin','Arun Kumar','admin@signfix.in','9999999999'),('customer','Demo Customer','customer@signfix.in','9876543210'),('technician','Demo Technician','tech@signfix.in','9812345678')) AS v(role,name,email,mobile)
+JOIN roles r ON r.name=v.role
+ON CONFLICT (email) DO UPDATE SET role_id=EXCLUDED.role_id,name=EXCLUDED.name,mobile=EXCLUDED.mobile,password_hash=EXCLUDED.password_hash,status='active';
 INSERT INTO customers(user_id,company_name,address) SELECT id,'Demo Retail','{"city":"Bengaluru","state":"Karnataka"}'::jsonb FROM users WHERE email='customer@signfix.in' ON CONFLICT (user_id) DO NOTHING;
 INSERT INTO technicians(user_id,service_areas) SELECT id,'["Bengaluru"]'::jsonb FROM users WHERE email='tech@signfix.in' ON CONFLICT (user_id) DO NOTHING;
 INSERT INTO products(id,name,category,description,pricing_method,status) VALUES (1,'LED Sign Board','Illuminated','Energy-efficient LED signage','sqft',TRUE),(2,'Acrylic Sign Board','Premium','Premium acrylic signage','sqft',TRUE),(3,'Flex Sign Board','Economy','Printed flex signage','sqft',TRUE),(4,'Neon Sign','Decorative','Custom neon concept','sqft',TRUE) ON CONFLICT (id) DO NOTHING;

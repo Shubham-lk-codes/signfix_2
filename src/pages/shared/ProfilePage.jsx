@@ -1,0 +1,2 @@
+import React from 'react';import { useAuth } from '../../context/AuthContext';
+export default function ProfilePage(){const{user,logout}=useAuth();return <div className="form-card profile-card"><div className="profile-avatar">{user.name?.[0]||'U'}</div><h1>{user.name||'SignFix User'}</h1><p>{user.email}</p><p className="badge">{user.role?.replaceAll('_',' ')}</p><button className="outline" onClick={logout}>Logout</button></div>}

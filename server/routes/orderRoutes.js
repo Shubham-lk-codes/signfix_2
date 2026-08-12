@@ -1,0 +1,10 @@
+const router = require('express').Router();
+const { z } = require('zod');
+const controller = require('../controllers/orderController');
+const validate = require('../middleware/validate');
+const { authenticate, authorize } = require('../middleware/auth');
+router.use(authenticate);
+router.get('/', controller.list);
+router.post('/', authorize('customer', 'super_admin', 'admin'), validate(z.object({ product: z.string().min(1), length: z.coerce.number().positive(), width: z.coerce.number().positive(), quantity: z.coerce.number().int().positive(), material: z.string().optional(), lighting: z.string().optional(), unit: z.string().default('ft'), estimatedPrice: z.coerce.number().nonnegative().optional(), address: z.string().optional() }).passthrough()), controller.create);
+router.patch('/:id/status', authorize('super_admin', 'admin', 'sales_manager'), controller.updateStatus);
+module.exports = router;

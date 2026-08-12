@@ -1,119 +1,49 @@
 const { Pool } = require('pg');
-
 let pool;
+function isConfigured() { return Boolean(process.env.DATABASE_URL); }
+function getPool() { if (!isConfigured()) throw Object.assign(new Error('DATABASE_URL is required'), { status: 503 }); if (!pool) pool = new Pool({ connectionString: process.env.DATABASE_URL, max: Number(process.env.DB_POOL_SIZE || 10) }); return pool; }
+async function health() { await getPool().query('SELECT 1'); return { mode: 'postgres', connected: true }; }
+async function findUserByEmail(email) { const { rows } = await getPool().query(`SELECT u.id,u.name,u.email,u.password_hash AS "passwordHash",r.name AS role FROM users u JOIN roles r ON r.id=u.role_id WHERE LOWER(u.email)=$1 AND u.status='active' LIMIT 1`, [email]); return rows[0]; }
 
-function isConfigured() {
-  return Boolean(process.env.DATABASE_URL);
-}
+const catalog = {
+  products: { table: 'products', select: 'id,name,category,description,pricing_method AS "pricingMethod",status' },
+  materials: { table: 'materials', select: 'id,name,price_per_sqft AS price,status' },
+  lighting: { table: 'lighting_options', select: 'id,name,price_per_sqft AS price,status' },
+  'service-categories': { table: 'service_categories', select: 'id,name,status' },
+  customers: { table: 'customer_directory', select: 'id,name,email,mobile,company_name AS company,address,status,created_at AS "createdAt"' },
+  technicians: { table: 'technician_directory', select: 'id,name,email,mobile,service_areas AS "serviceAreas",status,created_at AS "createdAt"' },
+  quotations: { table: 'quotation_directory', select: '*' },
+  assets: { table: 'asset_directory', select: '*' },
+  notifications: { table: 'notification_directory', select: '*' },
+  'ai-leads': { table: 'ai_leads', select: 'id,customer_id AS "customerId",requirement,product,estimated_budget AS "estimatedBudget",contact,status,created_at AS "createdAt"' },
+  'ai-knowledge': { table: 'ai_knowledge_base', select: 'id,title,category,content,status,created_at AS "createdAt"' },
+  settings: { table: 'settings', select: 'id,setting_key AS key,value,updated_at AS "updatedAt"' },
+};
+function resource(name) { const value = catalog[name]; if (!value) throw Object.assign(new Error('Unsupported resource'), { status: 404 }); return value; }
+async function listCatalog(name, query = {}) { const item = resource(name); const search = String(query.search || '').trim(); const params = search ? [`%${search}%`] : []; const where = search ? ` WHERE LOWER(COALESCE(name::text,'')) LIKE LOWER($1) OR LOWER(COALESCE(email::text,'')) LIKE LOWER($1)` : ''; try { const { rows } = await getPool().query(`SELECT ${item.select} FROM ${item.table}${where} ORDER BY id DESC LIMIT 100`, params); return rows; } catch (error) { if (search && error.code === '42703') { const { rows } = await getPool().query(`SELECT ${item.select} FROM ${item.table} ORDER BY id DESC LIMIT 100`); return rows; } throw error; } }
+const writableCatalog = {
+  products: { table: 'products', fields: { name: 'name', category: 'category', description: 'description', pricingMethod: 'pricing_method', status: 'status' } },
+  materials: { table: 'materials', fields: { name: 'name', price: 'price_per_sqft', status: 'status' } },
+  lighting: { table: 'lighting_options', fields: { name: 'name', price: 'price_per_sqft', status: 'status' } },
+  'service-categories': { table: 'service_categories', fields: { name: 'name', status: 'status' } },
+  'ai-leads': { table: 'ai_leads', fields: { requirement: 'requirement', product: 'product', estimatedBudget: 'estimated_budget', contact: 'contact', status: 'status' } },
+  'ai-knowledge': { table: 'ai_knowledge_base', fields: { title: 'title', category: 'category', content: 'content', status: 'status' } },
+};
+function writable(name) { const item = writableCatalog[name]; if (!item) throw Object.assign(new Error('This resource is read-only or unsupported'), { status: 422 }); return item; }
+async function createCatalog(name, data, user) { const item = writable(name), entries = Object.entries(data).filter(([key, value]) => item.fields[key] && value !== undefined); if (!entries.length) throw Object.assign(new Error('No supported fields supplied'), { status: 422 }); const columns = entries.map(([key]) => item.fields[key]), values = entries.map(([, value]) => value), placeholders = values.map((_, index) => `$${index + 1}`); const { rows } = await getPool().query(`INSERT INTO ${item.table}(${columns.join(',')}) VALUES(${placeholders.join(',')}) RETURNING *`, values); await audit(user.id, `${name}.create`, name, rows[0].id, data); return rows[0]; }
+async function updateCatalog(name, id, data, user) { const item = writable(name), entries = Object.entries(data).filter(([key, value]) => item.fields[key] && value !== undefined); if (!entries.length) throw Object.assign(new Error('No supported fields supplied'), { status: 422 }); const values = entries.map(([, value]) => value), sets = entries.map(([key], index) => `${item.fields[key]}=$${index + 1}`); values.push(id); const { rows } = await getPool().query(`UPDATE ${item.table} SET ${sets.join(',')} WHERE id=$${values.length} RETURNING *`, values); if (!rows[0]) throw Object.assign(new Error('Resource not found'), { status: 404 }); await audit(user.id, `${name}.update`, name, id, data); return rows[0]; }
+async function deleteCatalog(name, id, user) { const item = writable(name); const result = await getPool().query(`DELETE FROM ${item.table} WHERE id=$1`, [id]); if (!result.rowCount) throw Object.assign(new Error('Resource not found'), { status: 404 }); await audit(user.id, `${name}.delete`, name, id, {}); }
 
-function getPool() {
-  if (!isConfigured()) return null;
-  if (!pool) {
-    pool = new Pool({
-      connectionString: process.env.DATABASE_URL,
-      max: Number(process.env.DB_POOL_SIZE || 10),
-    });
-  }
-  return pool;
-}
-
-async function health() {
-  if (!isConfigured()) return { mode: 'memory', connected: true };
-  await getPool().query('SELECT 1');
-  return { mode: 'neon-postgres', connected: true };
-}
-
-async function findUserByEmail(email) {
-  const { rows } = await getPool().query(
-    `SELECT u.id, u.name, u.email, u.password_hash AS "passwordHash", r.name AS role
-       FROM users u JOIN roles r ON r.id = u.role_id
-      WHERE u.email = $1 AND u.status = 'active' LIMIT 1`,
-    [email],
-  );
-  return rows[0] || null;
-}
-
-async function listOrders(user) {
-  const params = [];
-  let where = '';
-  if (user.role === 'customer') {
-    where = 'WHERE u.email = $1';
-    params.push(user.email);
-  }
-  const { rows } = await getPool().query(
-    `SELECT o.order_no AS id, o.specifications, o.estimated_price AS "estimatedPrice",
-            o.status, o.created_at AS "createdAt", u.email AS "createdBy"
-       FROM orders o JOIN customers c ON c.id=o.customer_id JOIN users u ON u.id=c.user_id
-       ${where} ORDER BY o.created_at DESC LIMIT 100`,
-    params,
-  );
-  return rows.map((row) => ({ ...row, ...(row.specifications || {}) }));
-}
-
-async function createOrder(user, data, orderNo) {
-  const client = await getPool().connect();
-  try {
-    await client.query('BEGIN');
-    const { rows: customers } = await client.query(
-      'SELECT c.id FROM customers c JOIN users u ON u.id=c.user_id WHERE u.email=$1 LIMIT 1',
-      [user.email],
-    );
-    if (!customers[0]) throw Object.assign(new Error('Customer profile not found'), { status: 422 });
-    await client.query(
-      'INSERT INTO orders(order_no,customer_id,specifications,estimated_price,status) VALUES($1,$2,$3::jsonb,$4,$5)',
-      [orderNo, customers[0].id, JSON.stringify(data), data.estimatedPrice || 0, 'under_review'],
-    );
-    await client.query('COMMIT');
-    return { ...data, id: orderNo, createdBy: user.email, status: 'under_review', createdAt: new Date().toISOString() };
-  } catch (error) {
-    await client.query('ROLLBACK');
-    throw error;
-  } finally {
-    client.release();
-  }
-}
-
-async function listServices(user) {
-  const params = [];
-  let where = '';
-  if (user.role === 'customer') { where = 'WHERE u.email=$1'; params.push(user.email); }
-  const { rows } = await getPool().query(
-    `SELECT s.ticket_no AS id,s.category,s.description,s.location,s.photos,s.priority,s.status,
-            s.created_at AS "createdAt",u.email AS "createdBy"
-       FROM service_tickets s JOIN customers c ON c.id=s.customer_id JOIN users u ON u.id=c.user_id
-       ${where} ORDER BY s.created_at DESC LIMIT 100`, params,
-  );
-  return rows;
-}
-
-async function createService(user, data, ticketNo) {
-  const { rows: customers } = await getPool().query(
-    'SELECT c.id FROM customers c JOIN users u ON u.id=c.user_id WHERE u.email=$1 LIMIT 1', [user.email],
-  );
-  if (!customers[0]) throw Object.assign(new Error('Customer profile not found'), { status: 422 });
-  await getPool().query(
-    'INSERT INTO service_tickets(ticket_no,customer_id,category,description,location,photos,priority,status) VALUES($1,$2,$3,$4,$5::jsonb,$6::jsonb,$7,$8)',
-    [ticketNo, customers[0].id, data.category, data.description, JSON.stringify({ address: data.address, latitude: data.latitude, longitude: data.longitude }), JSON.stringify(data.photos || []), data.priority || 'normal', 'submitted'],
-  );
-  return { ...data, id: ticketNo, createdBy: user.email, status: 'submitted', createdAt: new Date().toISOString(), message: 'Your service request has been submitted.' };
-}
-
-async function dashboard() {
-  const { rows } = await getPool().query(`
-    SELECT
-      (SELECT COUNT(*)::int FROM customers) AS customers,
-      (SELECT COUNT(*)::int FROM orders WHERE created_at >= CURRENT_DATE - INTERVAL '30 days') AS "newOrders",
-      (SELECT COUNT(*)::int FROM service_tickets WHERE status NOT IN ('closed','completed')) AS "activeServices",
-      (SELECT COUNT(*)::int FROM technicians) AS technicians,
-      (SELECT COUNT(*)::int FROM technician_jobs WHERE status <> 'completed') AS "pendingJobs"
-  `);
-  const { rows: recentOrders } = await getPool().query(
-    'SELECT order_no AS id, estimated_price AS "estimatedPrice", status, created_at AS "createdAt" FROM orders ORDER BY created_at DESC LIMIT 5',
-  );
-  const { rows: recentServices } = await getPool().query(
-    'SELECT ticket_no AS id, category, priority, status, created_at AS "createdAt" FROM service_tickets ORDER BY created_at DESC LIMIT 5',
-  );
-  return { ...rows[0], recentOrders, recentServices };
-}
-
-module.exports = { isConfigured, health, findUserByEmail, listOrders, createOrder, listServices, createService, dashboard };
+async function listOrders(user) { const params = []; let where = ''; if (user.role === 'customer') { where = 'WHERE u.email=$1'; params.push(user.email); } const { rows } = await getPool().query(`SELECT o.order_no AS id,u.name AS customer,o.specifications,o.estimated_price AS "estimatedPrice",o.status,o.created_at AS "createdAt",u.email AS "createdBy" FROM orders o JOIN customers c ON c.id=o.customer_id JOIN users u ON u.id=c.user_id ${where} ORDER BY o.created_at DESC LIMIT 100`, params); return rows.map(row => ({ ...row, ...(row.specifications || {}) })); }
+async function createOrder(user, data, orderNo) { const { rows: customers } = await getPool().query('SELECT c.id FROM customers c JOIN users u ON u.id=c.user_id WHERE u.email=$1 LIMIT 1', [user.email]); let customerId = customers[0]?.id; if (!customerId && ['super_admin','admin'].includes(user.role)) customerId = (await getPool().query('SELECT id FROM customers ORDER BY id LIMIT 1')).rows[0]?.id; if (!customerId) throw Object.assign(new Error('Customer profile not found'), { status: 422 }); const { rows } = await getPool().query(`INSERT INTO orders(order_no,customer_id,specifications,estimated_price,status) VALUES($1,$2,$3::jsonb,$4,'under_review') RETURNING created_at`, [orderNo, customerId, JSON.stringify(data), data.estimatedPrice || 0]); return { ...data, id: orderNo, status: 'under_review', createdAt: rows[0].created_at }; }
+async function updateOrderStatus(orderNo, status, user) { const { rows } = await getPool().query('UPDATE orders SET status=$2 WHERE order_no=$1 RETURNING order_no AS id,status', [orderNo, status]); if (!rows[0]) throw Object.assign(new Error('Order not found'), { status: 404 }); await audit(user.id, 'order.status', 'order', null, { orderNo, status }); return rows[0]; }
+async function listServices(user) { const params = []; let where = ''; if (user.role === 'customer') { where = 'WHERE u.email=$1'; params.push(user.email); } const { rows } = await getPool().query(`SELECT s.ticket_no AS id,u.name AS customer,s.category,s.description,s.location,s.photos,s.priority,s.status,s.created_at AS "createdAt",u.email AS "createdBy" FROM service_tickets s JOIN customers c ON c.id=s.customer_id JOIN users u ON u.id=c.user_id ${where} ORDER BY s.created_at DESC LIMIT 100`, params); return rows; }
+async function createService(user, data, ticketNo) { const { rows: customers } = await getPool().query('SELECT c.id FROM customers c JOIN users u ON u.id=c.user_id WHERE u.email=$1 LIMIT 1', [user.email]); let customerId = customers[0]?.id; if (!customerId && ['super_admin','admin'].includes(user.role)) customerId = (await getPool().query('SELECT id FROM customers ORDER BY id LIMIT 1')).rows[0]?.id; if (!customerId) throw Object.assign(new Error('Customer profile not found'), { status: 422 }); const { rows } = await getPool().query(`INSERT INTO service_tickets(ticket_no,customer_id,category,description,location,photos,priority,status) VALUES($1,$2,$3,$4,$5::jsonb,$6::jsonb,$7,'submitted') RETURNING created_at`, [ticketNo, customerId, data.category, data.description, JSON.stringify({ address: data.address, latitude: data.latitude, longitude: data.longitude }), JSON.stringify(data.photos || []), data.priority]); return { ...data, id: ticketNo, status: 'submitted', createdAt: rows[0].created_at, message: 'Your service request has been submitted.' }; }
+async function updateService(ticketNo, data, user) { const { rows } = await getPool().query('UPDATE service_tickets SET status=COALESCE($2,status),priority=COALESCE($3,priority) WHERE ticket_no=$1 RETURNING ticket_no AS id,status,priority', [ticketNo, data.status, data.priority]); if (!rows[0]) throw Object.assign(new Error('Service ticket not found'), { status: 404 }); await audit(user.id, 'service.update', 'service_ticket', null, { ticketNo, ...data }); return rows[0]; }
+async function listJobs(user) { const params = []; let where = ''; if (user.role === 'technician') { where = 'WHERE tu.email=$1'; params.push(user.email); } const { rows } = await getPool().query(`SELECT j.id,s.ticket_no AS "ticketId",cu.name AS customer,s.category,s.priority,j.status,s.location,tu.name AS technician,j.scheduled_at AS "scheduledAt" FROM technician_jobs j JOIN service_tickets s ON s.id=j.ticket_id JOIN customers c ON c.id=s.customer_id JOIN users cu ON cu.id=c.user_id LEFT JOIN technicians t ON t.id=j.technician_id LEFT JOIN users tu ON tu.id=t.user_id ${where} ORDER BY j.scheduled_at NULLS LAST,j.id DESC`, params); return rows; }
+async function updateJobStatus(id, data, user) { const transitions = { assigned: 'accepted', accepted: 'on_the_way', on_the_way: 'reached_location', reached_location: 'inspection_started', inspection_started: 'work_in_progress', work_in_progress: 'completed' }; const current = (await getPool().query('SELECT status FROM technician_jobs WHERE id=$1', [id])).rows[0]; if (!current) throw Object.assign(new Error('Job not found'), { status: 404 }); if (transitions[current.status] !== data.status) throw Object.assign(new Error(`Job must move from ${current.status} to ${transitions[current.status]}`), { status: 409 }); if (data.status === 'completed' && !/^\d{4,6}$/.test(data.customerOtp || '')) throw Object.assign(new Error('Valid customer OTP required'), { status: 422 }); const { rows } = await getPool().query('UPDATE technician_jobs SET status=$2,customer_confirmation=COALESCE($3::jsonb,customer_confirmation) WHERE id=$1 RETURNING *', [id, data.status, data.customerOtp ? JSON.stringify({ otpConfirmed: true }) : null]); await getPool().query('INSERT INTO job_status_history(job_id,status,notes,created_by) VALUES($1,$2,$3,$4)', [id, data.status, data.notes, user.id]); return rows[0]; }
+async function calculatePrice(data) { const { rows } = await getPool().query(`SELECT p.name,COALESCE(pr.amount,0) rate FROM products p LEFT JOIN pricing_rules pr ON pr.product_id=p.id AND pr.active WHERE p.name=$1 LIMIT 1`, [data.product]); const rate = Number(rows[0]?.rate || 600); const material = (await getPool().query('SELECT price_per_sqft price FROM materials WHERE name=$1', [data.material || ''])).rows[0]; const lighting = (await getPool().query('SELECT price_per_sqft price FROM lighting_options WHERE name=$1', [data.lighting || ''])).rows[0]; const area = data.length * data.width * data.quantity; const productCost = area * rate, materialCost = area * Number(material?.price || 0), lightingCost = area * Number(lighting?.price || 0); const installation = data.installation ? 2500 : 0, transportation = data.transportation ? 1200 : 0, design = data.design ? 1000 : 0, accessories = data.accessories ? 500 : 0; const subtotal = productCost + materialCost + lightingCost + installation + transportation + design + accessories, gst = Math.round(subtotal * .18); return { area, productCost, materialCost, lightingCost, installation, transportation, design, accessories, discount: 0, gst, estimatedPrice: Math.round(subtotal + gst), label: 'Estimated Price', notice: 'Final quotation may change after Admin review/measurement.' }; }
+async function dashboard() { const { rows } = await getPool().query(`SELECT (SELECT COUNT(*)::int FROM customers) customers,(SELECT COUNT(*)::int FROM orders WHERE created_at>=CURRENT_DATE-INTERVAL '30 days') AS "newOrders",(SELECT COUNT(*)::int FROM quotations WHERE status IS DISTINCT FROM 'approved') AS "pendingQuotations",(SELECT COUNT(*)::int FROM service_tickets WHERE status NOT IN ('closed','completed')) AS "activeServices",(SELECT COUNT(*)::int FROM technicians) technicians,(SELECT COUNT(*)::int FROM technician_jobs WHERE status='completed') AS "completedJobs",(SELECT COUNT(*)::int FROM technician_jobs WHERE status<>'completed') AS "pendingJobs",(SELECT COALESCE(SUM(final_amount),0) FROM quotations WHERE status='approved') revenue`); return rows[0]; }
+async function report(type) { const supported = ['sales','orders','services','technicians','customers','revenue','ai-leads']; if (!supported.includes(type)) throw Object.assign(new Error('Unsupported report'), { status: 404 }); return { type, generatedAt: new Date().toISOString(), summary: await dashboard() }; }
+async function audit(userId, action, entityType, entityId, metadata) { await getPool().query('INSERT INTO audit_logs(user_id,action,entity_type,entity_id,metadata) VALUES($1,$2,$3,$4,$5::jsonb)', [userId, action, entityType, entityId, JSON.stringify(metadata)]); }
+module.exports = { isConfigured, health, findUserByEmail, listCatalog, createCatalog, updateCatalog, deleteCatalog, listOrders, createOrder, updateOrderStatus, listServices, createService, updateService, listJobs, updateJobStatus, calculatePrice, dashboard, report };

@@ -1,0 +1,10 @@
+const router = require('express').Router();
+const { z } = require('zod');
+const controller = require('../controllers/serviceController');
+const validate = require('../middleware/validate');
+const { authenticate, authorize } = require('../middleware/auth');
+router.use(authenticate);
+router.get('/', controller.list);
+router.post('/', authorize('customer', 'super_admin', 'admin'), validate(z.object({ category: z.string().min(1), description: z.string().min(3), address: z.string().optional(), latitude: z.coerce.number().optional(), longitude: z.coerce.number().optional(), photos: z.array(z.string()).optional(), priority: z.enum(['normal', 'high', 'emergency']).default('normal') })), controller.create);
+router.patch('/:id', authorize('super_admin', 'admin', 'service_manager'), controller.update);
+module.exports = router;

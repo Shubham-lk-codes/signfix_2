@@ -1,0 +1,17 @@
+const express = require('express');
+const cors = require('cors');
+const helmet = require('helmet');
+const fs = require('fs');
+const { corsOrigins, uploadDir } = require('./config');
+const routes = require('./routes');
+const { notFound, errorHandler } = require('./middleware/errorHandler');
+fs.mkdirSync(uploadDir, { recursive: true });
+const app = express();
+app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
+app.use(cors({ origin(origin, callback) { if (!origin || corsOrigins.includes(origin.replace(/\/$/, ''))) return callback(null, true); callback(Object.assign(new Error('Origin is not allowed by CORS'), { status: 403 })); } }));
+app.use(express.json({ limit: '2mb' }));
+app.use('/uploads', express.static(uploadDir));
+app.use('/api', routes);
+app.use(notFound);
+app.use(errorHandler);
+module.exports = app;

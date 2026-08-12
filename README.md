@@ -6,8 +6,8 @@ Sign board sales, service, maintenance and field-operations platform by **DL SSR
 
 ```bash
 npm install
-npm run dev       # admin at http://localhost:5173
-npm run server    # API at http://localhost:4000
+npm run dev       # starts React at :5173 and the API at :4000 together
+npm run server    # starts only the API at http://localhost:4000
 ```
 
 Run the Flutter clients with the API URL for the target device:
@@ -28,11 +28,16 @@ Use `localhost` for desktop/iOS simulator and the development machine's LAN addr
 
 ## Architecture
 
-- `src/`: responsive React admin interface and interaction layer.
-- `apps/customer_app/`: customer login, dashboard, connected order calculator/wizard, photo/GPS service request, tracking, and AI support.
-- `apps/technician_app/`: technician login, live job queue, navigation, enforced status workflow, evidence upload, notes, materials, and customer OTP completion.
-- `server/`: shared REST API with JWT roles, validation, uploads, pricing, customer orders/services, technician jobs, AI guidance, and an admin dashboard feed.
-- `database/`: MySQL schema for identity, commerce, field service, assets, AI, notifications, and audit history.
+- `src/api`, `src/context`, `src/hooks`: API client, authentication state and browser routing.
+- `src/components`: reusable layouts and UI components.
+- `src/pages/admin`: responsive operations console modules.
+- `src/pages/customer`: mobile-first ordering, service, AI support and design-demo workflows.
+- `src/pages/technician`: mobile-first field job dashboard and status workflow.
+- `server/routes`: REST endpoint declarations grouped by domain.
+- `server/controllers`: HTTP orchestration and validation boundaries.
+- `server/middleware`: JWT authentication, role authorization, validation and errors.
+- `server/database.js`: parameterized PostgreSQL repository operations.
+- `database`: PostgreSQL schema and idempotent development seed.
 
 Configure `JWT_SECRET`, database credentials, object storage, maps, FCM, and the LLM provider through environment variables before production deployment.
 

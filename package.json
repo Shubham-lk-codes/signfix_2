@@ -3,7 +3,8 @@
   "private": true,
   "version": "1.0.0",
   "scripts": {
-    "dev": "vite --host 0.0.0.0",
+    "dev": "node server/dev.js",
+    "dev:frontend": "vite --config vite.config.mjs",
     "build": "vite build",
     "test": "vitest run",
     "server": "node server/index.js"
