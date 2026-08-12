@@ -1,4 +1,4 @@
-const { Pool } = require('@neondatabase/serverless');
+const { Pool } = require('pg');
 
 let pool;
 

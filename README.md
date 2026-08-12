@@ -49,3 +49,10 @@ The supplied SignFix artwork is stored once as the text-based `branding/signfix-
 5. Check `GET /api/health`: `database.mode` must be `neon-postgres` before production deployment.
 
 Never commit `.env` or use the demo credentials in production.
+
+## Production deployment
+
+- Vercel builds with `.env.production`, so browser API requests go to `https://signfix-2.onrender.com`.
+- Render uses `render.yaml`. Add `DATABASE_URL` in the Render service environment; it is intentionally not stored in Git.
+- Render allows both `https://signfix-2.vercel.app` and the local Vite origin through `CORS_ORIGIN`.
+- Redeploy both services after pushing configuration changes.

@@ -17,7 +17,7 @@
     "express": "latest",
     "cors": "latest",
     "helmet": "latest",
-    "@neondatabase/serverless": "latest",
+    "pg": "latest",
     "dotenv": "latest",
     "jsonwebtoken": "latest",
     "bcryptjs": "latest",

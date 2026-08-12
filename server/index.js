@@ -14,7 +14,14 @@ const SECRET = process.env.JWT_SECRET || 'development-only-change-me';
 const uploadDir = path.join(__dirname, 'uploads');
 fs.mkdirSync(uploadDir, { recursive: true });
 app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
-app.use(cors({ origin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',') : true }));
+const allowedOrigins = (process.env.CORS_ORIGIN || 'http://localhost:5173,https://signfix-2.vercel.app')
+  .split(',').map((origin) => origin.trim().replace(/\/$/, '')).filter(Boolean);
+app.use(cors({
+  origin(origin, callback) {
+    if (!origin || allowedOrigins.includes(origin.replace(/\/$/, ''))) return callback(null, true);
+    return callback(Object.assign(new Error('Origin is not allowed by CORS'), { status: 403 }));
+  },
+}));
 app.use(express.json({ limit: '2mb' }));
 app.use('/uploads', express.static(uploadDir));
 const upload = multer({ dest: uploadDir, limits: { fileSize: 8 * 1024 * 1024 }, fileFilter: (_, file, cb) => cb(null, /image|pdf/.test(file.mimetype)) });
