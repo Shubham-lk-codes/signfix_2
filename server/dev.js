@@ -1,7 +1,9 @@
 const app = require('./app');
 const { port } = require('./config');
+const migrate = require('./migrate');
 
 async function start() {
+  await migrate();
   const api = app.listen(port, () => console.log(`SignFix API: http://localhost:${port}`));
   api.on('error', (error) => {
     if (error.code === 'EADDRINUSE') console.error(`Port ${port} is already in use. Stop the existing API process and retry.`);
