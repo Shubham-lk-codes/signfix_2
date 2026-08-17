@@ -1,0 +1,10 @@
+const {z}=require('zod');
+const status=z.enum(['assigned','accepted','on_the_way','reached_location','inspection_started','work_in_progress','completed','closed']);
+const profile=z.object({name:z.string().trim().min(2).max(120).optional(),mobile:z.string().trim().min(8).max(20).optional(),emergencyContact:z.string().trim().min(8).max(20).nullable().optional(),profilePhotoUrl:z.string().max(500).nullable().optional(),locationSharing:z.boolean().optional(),skills:z.array(z.string().trim().min(1).max(80)).max(30).optional()}).refine(v=>Object.keys(v).length>0,{message:'At least one field is required'});
+const statusUpdate=z.object({status:status.exclude(['assigned','closed']),notes:z.string().trim().max(2000).optional()});
+const material=z.object({name:z.string().trim().min(1).max(160),quantity:z.coerce.number().positive().max(100000),unit:z.string().trim().min(1).max(40),notes:z.string().trim().max(1000).optional()});
+const location=z.object({latitude:z.coerce.number().min(-90).max(90),longitude:z.coerce.number().min(-180).max(180),accuracyMeters:z.coerce.number().nonnegative().max(100000).optional()});
+const confirmation=z.object({otp:z.string().regex(/^\d{6}$/).optional(),signatureUrl:z.string().min(1).max(500).optional(),accepted:z.literal(true),customerName:z.string().trim().min(2).max(120),remarks:z.string().trim().max(1000).optional()}).refine(v=>v.otp||v.signatureUrl,{message:'Customer OTP or digital signature is required'});
+const evidence=z.object({type:z.enum(['before','damage','work','after']),serviceNotes:z.string().trim().max(3000).optional(),workDescription:z.string().trim().max(3000).optional(),additionalRemarks:z.string().trim().max(3000).optional()});
+const jobQuery=z.object({status:status.optional(),priority:z.string().trim().max(30).optional(),from:z.string().date().optional(),to:z.string().date().optional(),today:z.enum(['true','false']).optional(),emergency:z.enum(['true','false']).optional(),page:z.coerce.number().int().positive().default(1),limit:z.coerce.number().int().min(1).max(100).default(20)});
+module.exports={profile,statusUpdate,material,location,confirmation,evidence,jobQuery,status};

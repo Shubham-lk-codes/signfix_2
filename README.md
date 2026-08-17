@@ -1,5 +1,7 @@
 # SignFix
 
+Technician mobile API integration: [docs/technician-api.md](docs/technician-api.md)
+
 Sign board sales, service, maintenance and field-operations platform by **DL SSR INFOTECH**. The monorepo contains two Flutter applications, a responsive React operations console, a secured Node/Express REST API, and a MySQL relational schema.
 
 ## Run locally
