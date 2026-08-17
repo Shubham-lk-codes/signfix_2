@@ -16,4 +16,14 @@ const authorize = (...roles) => (req, res, next) => roles.includes(req.user.role
   ? next()
   : res.status(403).json({ error: 'Insufficient permission' });
 
-module.exports = { authenticate, authorize };
+const permit = (permissionOrResolver) => async (req, res, next) => {
+  try {
+    if (req.user.role === 'super_admin') return next();
+    const permission = typeof permissionOrResolver === 'function' ? permissionOrResolver(req) : permissionOrResolver;
+    const database = require('../database');
+    const { rowCount } = await database.getPool().query(`SELECT 1 FROM users u JOIN role_permissions rp ON rp.role_id=u.role_id JOIN permissions p ON p.id=rp.permission_id WHERE u.id=$1 AND p.name=$2`, [req.user.id, permission]);
+    return rowCount ? next() : res.status(403).json({ error: 'Insufficient permission', errorCode: 'PERMISSION_DENIED' });
+  } catch (error) { next(error); }
+};
+
+module.exports = { authenticate, authorize, permit };

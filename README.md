@@ -1,8 +1,10 @@
 # SignFix
 
+Project file map: [docs/FOLDER_STRUCTURE.md](docs/FOLDER_STRUCTURE.md)
+
 Technician mobile API integration: [docs/technician-api.md](docs/technician-api.md)
 
-Sign board sales, service, maintenance and field-operations platform by **DL SSR INFOTECH**. The monorepo contains two Flutter applications, a responsive React operations console, a secured Node/Express REST API, and a MySQL relational schema.
+Sign board sales, service, maintenance and field-operations platform by **DL SSR INFOTECH**. The repository contains a responsive React operations console, a secured Node/Express REST API, and a PostgreSQL relational schema. Customer and technician API contracts are retained for future mobile clients; native mobile applications are outside this build scope.
 
 ## Run locally
 
@@ -12,14 +14,7 @@ npm run dev       # starts React at :5173 and the API at :4000 together
 npm run server    # starts only the API at http://localhost:4000
 ```
 
-Run the Flutter clients with the API URL for the target device:
-
-```bash
-cd apps/customer_app && flutter pub get && flutter run --dart-define=API_URL=http://10.0.2.2:4000/api
-cd apps/technician_app && flutter pub get && flutter run --dart-define=API_URL=http://10.0.2.2:4000/api
-```
-
-Use `localhost` for desktop/iOS simulator and the development machine's LAN address for physical devices. Demo accounts use `SignFix@123`: `customer@signfix.in`, `tech@signfix.in`, and `admin@signfix.in`.
+Demo accounts use `SignFix@123`: `customer@signfix.in`, `tech@signfix.in`, and `admin@signfix.in`.
 
 ## Business invariants
 

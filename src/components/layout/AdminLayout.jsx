@@ -5,12 +5,12 @@ import signFixLogo from '../../../branding/signfix-logo.svg';
 
 const items = [
   ['Overview', '/', LayoutDashboard], ['Customers', '/customers', Users],
-  ['Products', '/products', Package], ['Pricing', '/pricing', Boxes],
+  ['Products', '/products', Package], ['Categories', '/categories', Boxes], ['Materials', '/materials', Boxes], ['Lighting', '/lighting', Boxes],
   ['Orders', '/orders', Package], ['Quotations', '/quotations', ClipboardList],
   ['Service tickets', '/services', TicketCheck], ['Technicians', '/technicians', Wrench],
-  ['Sign assets', '/assets', ShieldCheck], ['AI management', '/ai-management', Bot],
+  ['Sign assets', '/assets', ShieldCheck], ['AI leads', '/ai-leads', Bot], ['AI knowledge', '/ai-knowledge', Bot], ['AI conversations', '/ai-conversations', Bot], ['Design concepts', '/design-concepts', Bot],
   ['Notifications', '/notifications', Bell], ['Reports', '/reports', ArrowUpRight],
-  ['Settings', '/settings', Settings],
+  ['Roles', '/roles', Users], ['Permissions', '/permissions', ShieldCheck], ['Audit logs', '/audit-logs', ClipboardList], ['Settings', '/settings', Settings],
 ];
 
 export default function AdminLayout({ path, navigate, children }) {

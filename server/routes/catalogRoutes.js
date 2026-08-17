@@ -1,9 +1,11 @@
 const router = require('express').Router();
 const controller = require('../controllers/catalogController');
-const { authenticate, authorize } = require('../middleware/auth');
+const { authenticate, permit } = require('../middleware/auth');
+const permissionModules = { products:'product', categories:'product', materials:'product', lighting:'product', 'service-categories':'service', customers:'customer', technicians:'technician', quotations:'quotation', assets:'asset', notifications:'notifications', 'ai-leads':'ai', 'ai-knowledge':'ai', 'ai-conversations':'ai', 'design-concepts':'ai', settings:'settings', 'audit-logs':'audit', roles:'settings', permissions:'settings' };
+const permission = action => req => `${permissionModules[req.params.resource] || req.params.resource}.${action}`;
 router.use(authenticate);
-router.get('/:resource', controller.list);
-router.post('/:resource', authorize('super_admin', 'admin'), controller.create);
-router.patch('/:resource/:id', authorize('super_admin', 'admin'), controller.update);
-router.delete('/:resource/:id', authorize('super_admin'), controller.remove);
+router.get('/:resource', permit(permission('view')), controller.list);
+router.post('/:resource', permit(permission('create')), controller.create);
+router.patch('/:resource/:id', permit(permission('update')), controller.update);
+router.delete('/:resource/:id', permit(permission('delete')), controller.remove);
 module.exports = router;

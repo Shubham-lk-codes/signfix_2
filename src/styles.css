@@ -15,3 +15,5 @@
 
 /* Slightly larger inherited text for improved readability. */
 body{font-size:19px}
+/* Operational table controls */
+.pagination{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:14px}.pagination span,.table-actions{display:flex;gap:8px}.danger{border:1px solid #fecaca;background:#fff;color:#b91c1c;border-radius:8px;padding:8px 11px;cursor:pointer}.danger:hover{background:#fef2f2}
