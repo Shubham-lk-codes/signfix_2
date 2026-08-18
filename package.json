@@ -11,19 +11,21 @@
   },
   "dependencies": {
     "@vitejs/plugin-react": "latest",
-    "vite": "latest",
+    "bcryptjs": "latest",
+    "cors": "latest",
+    "dotenv": "latest",
+    "express": "latest",
+    "firebase": "^12.17.1",
+    "firebase-admin": "^14.2.0",
+    "helmet": "latest",
+    "jsonwebtoken": "latest",
+    "lucide-react": "latest",
+    "multer": "latest",
+    "pg": "latest",
     "react": "latest",
     "react-dom": "latest",
-    "lucide-react": "latest",
-    "express": "latest",
-    "cors": "latest",
-    "helmet": "latest",
-    "pg": "latest",
-    "dotenv": "latest",
-    "jsonwebtoken": "latest",
-    "bcryptjs": "latest",
-    "zod": "latest",
-    "multer": "latest"
+    "vite": "latest",
+    "zod": "latest"
   },
   "devDependencies": {
     "vitest": "latest"

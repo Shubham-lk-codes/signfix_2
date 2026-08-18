@@ -15,6 +15,7 @@ const technicianRoutes = require('./technicianRoutes');
 const calculator = require('../controllers/calculatorController');
 const dashboard = require('../controllers/dashboardController');
 const misc = require('../controllers/miscController');
+const notifications = require('../controllers/notificationController');
 const validate = require('../middleware/validate');
 const { authenticate, authorize, permit } = require('../middleware/auth');
 const allowedUploads = new Map([['image/jpeg','.jpg'],['image/png','.png'],['image/webp','.webp'],['image/gif','.gif'],['application/pdf','.pdf']]);
@@ -36,4 +37,7 @@ router.post('/uploads', authenticate, upload.single('file'), (req, res) => req.f
 router.get('/uploads/:filename', authenticate, (req,res,next)=>{const filename=path.basename(req.params.filename);if(filename!==req.params.filename)return res.status(400).json({error:'Invalid filename'});res.sendFile(path.join(uploadDir,filename),error=>{if(error&&!res.headersSent)next(Object.assign(error,{status:error.statusCode||404}))});});
 router.post('/ai/chat', authenticate, misc.aiChat);
 router.get('/reports/:type', authenticate, permit('reports.view'), misc.report);
+router.get('/notifications/status', authenticate, authorize('super_admin', 'admin'), notifications.status);
+router.post('/notifications/register', authenticate, validate(z.object({ token:z.string().min(20), platform:z.enum(['web','android','ios']).optional() })), notifications.register);
+router.post('/notifications/send', authenticate, authorize('super_admin', 'admin'), validate(z.object({ title:z.string().min(2).max(160), body:z.string().min(2).max(1000), audience:z.enum(['all','customers','technicians','admins']).default('all'), data:z.record(z.any()).optional() })), notifications.send);
 module.exports = router;

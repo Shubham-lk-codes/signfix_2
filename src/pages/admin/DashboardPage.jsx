@@ -31,7 +31,8 @@ export default function DashboardPage({ navigate }) {
   const metrics = [
     ['Total Customers', data.customers, '+12.5%', Users, 'blue'], ['New Orders', data.newOrders, '+8.2%', Package, 'purple'],
     ['Pending Quotes', data.pendingQuotations, 'Needs action', ClipboardList, 'orange'], ['Active Services', data.activeServices, '+5 this week', Wrench, 'red'],
-    ['Revenue', `₹${Number(data.revenue || 0).toLocaleString('en-IN')}`, '+18.4%', ArrowUpRight, 'green'], ['Technicians', data.technicians, '15 available', Users, 'cyan'],
+    ['Revenue', `₹${Number(data.revenue || 0).toLocaleString('en-IN')}`, '+18.4%', ArrowUpRight, 'green'], ['Technicians', data.technicians, 'Team capacity', Users, 'cyan'],
+    ['Completed Jobs', data.completedJobs, 'All time', Zap, 'green'], ['Pending Jobs', data.pendingJobs, 'Needs attention', Wrench, 'orange'],
   ];
   return <section className="overview-page">
     <div className="overview-heading"><div><p>{new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</p><h1>Good morning, Arun <span>👋</span></h1><small>Here’s what’s happening across your business today.</small></div><div className="overview-actions"><button className="secondary-action"><ArrowUpRight size={17} />Export report</button><button className="primary-action-button" onClick={() => navigate('/orders')}><Plus size={18} />Create order</button></div></div>
