@@ -1,5 +1,5 @@
-const database = require('../database');
-const firebase = require('../services/firebaseService');
+const database = require('../../database');
+const firebase = require('../../services/firebaseService');
 
 async function register(req, res) {
   await database.registerDeviceToken(req.user.id, req.body.token, req.body.platform || 'web');

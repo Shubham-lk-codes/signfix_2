@@ -1,5 +1,5 @@
 const repo=require('../repositories/customerRepository');
-const {simplePdf}=require('../utils/pdf');
+const {simplePdf}=require('../../utils/pdf');
 async function dashboard(req,res){
     res.json(await repo.dashboard(req.user.id));}
 async function profile(req,res){

@@ -1,4 +1,4 @@
-const {z}=require('zod');
+const {z}=require('zod'); // technician request contracts
 const status=z.enum(['assigned','accepted','on_the_way','reached_location','inspection_started','work_in_progress','completed','closed']);
 const profile=z.object({name:z.string().trim().min(2).max(120).optional(),mobile:z.string().trim().min(8).max(20).optional(),emergencyContact:z.string().trim().min(8).max(20).nullable().optional(),profilePhotoUrl:z.string().max(500).nullable().optional(),locationSharing:z.boolean().optional(),skills:z.array(z.string().trim().min(1).max(80)).max(30).optional()}).refine(v=>Object.keys(v).length>0,{message:'At least one field is required'});
 const statusUpdate=z.object({status:status.exclude(['assigned','closed']),notes:z.string().trim().max(2000).optional()});

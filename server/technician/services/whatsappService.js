@@ -1,5 +1,5 @@
-const database=require('../database');
-const {whatsapp}=require('../config');
+const database=require('../../database');
+const {whatsapp}=require('../../config');
 
 function normalize(number=''){const digits=String(number).replace(/\D/g,'');if(!digits)return '';return digits.length===10?`91${digits}`:digits;}
 async function queueOnTheWay(jobId){

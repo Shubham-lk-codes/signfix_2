@@ -1,4 +1,4 @@
-const repo=require('../repositories/technicianRepository');
+const repo=require('../repositories/technicianRepository'); // technician-owned data access
 const service=require('../services/technicianService');
 
 async function dashboard(req,res){res.json({data:await repo.dashboardStats(req.user)});}

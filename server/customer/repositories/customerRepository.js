@@ -1,5 +1,5 @@
 const bcrypt = require('bcryptjs');
-const database = require('../database');
+const database = require('../../database');
 
 const pool = () => database.getPool();
 const activeOrder = "NOT IN ('completed','cancelled','closed')";

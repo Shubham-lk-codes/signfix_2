@@ -2,10 +2,10 @@ const router=require('express').Router();
 const {z}=require('zod');
 const controller=require('../controllers/technicianController');
 const schemas=require('../validation/technicianSchemas');
-const validate=require('../middleware/validate');
+const validate=require('../../middleware/validate');
 const upload=require('../middleware/technicianUpload');
-const {authenticate,authorize}=require('../middleware/auth');
-const {requireServiceArea}=require('../services/serviceAreaService');
+const {authenticate,authorize}=require('../../middleware/auth');
+const {requireServiceArea}=require('../../services/serviceAreaService');
 
 const id=z.string().regex(/^\d+$/);
 const validateId=(req,res,next)=>{const parsed=id.safeParse(req.params.jobId);if(!parsed.success)return res.status(422).json({error:'Invalid job id'});next();};

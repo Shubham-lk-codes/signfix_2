@@ -1,4 +1,4 @@
-const database = require('../database');
+const database = require('../../database');
 
 function pool() { return database.getPool(); }
 function technicianScope(user, alias = 'j') {

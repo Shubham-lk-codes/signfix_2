@@ -1,4 +1,4 @@
-import {describe,it,expect} from 'vitest';
+import {describe,it,expect} from 'vitest'; // colocated technician validation tests
 import {createRequire} from 'node:module';
 const require=createRequire(import.meta.url);
 const schemas=require('./technicianSchemas.js');

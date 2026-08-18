@@ -1,9 +1,9 @@
 const router=require('express').Router();
 const {z}=require('zod');
 const controller=require('../controllers/customerController');
-const validate=require('../middleware/validate');
-const {authenticate,authorize}=require('../middleware/auth');
-const {requireServiceArea}=require('../services/serviceAreaService');
+const validate=require('../../middleware/validate');
+const {authenticate,authorize}=require('../../middleware/auth');
+const {requireServiceArea}=require('../../services/serviceAreaService');
 router.use(authenticate,authorize('customer'));
 router.use(requireServiceArea);
 
