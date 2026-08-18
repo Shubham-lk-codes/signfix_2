@@ -1,6 +1,7 @@
 const bcrypt=require('bcryptjs');
 const crypto=require('crypto');
 const repo=require('../repositories/technicianRepository');
+const whatsapp=require('./whatsappService');
 
 const nextStatus={assigned:'accepted',accepted:'on_the_way',on_the_way:'reached_location',reached_location:'inspection_started',inspection_started:'work_in_progress',work_in_progress:'completed'};
 const timestampColumn={accepted:'accepted_at',on_the_way:'travel_started_at',reached_location:'reached_at',inspection_started:'inspection_started_at',work_in_progress:'work_started_at',completed:'work_completed_at'};
@@ -19,7 +20,9 @@ async function updateStatus(id,status,notes,user){
     await client.query(`UPDATE service_tickets SET status=$2,updated_at=NOW() WHERE id=$1`,[job.ticket_id,status]);
     await client.query(`INSERT INTO job_status_history(job_id,status,notes,created_by) VALUES($1,$2,$3,$4)`,[id,status,notes,user.id]);
     await client.query(`INSERT INTO audit_logs(user_id,action,entity_type,entity_id,metadata) VALUES($1,'technician.job_status','technician_job',$2,$3::jsonb)`,[user.id,id,JSON.stringify({from:job.status,to:status})]);
-    await client.query('COMMIT');return repo.getJob(id,user);
+    await client.query('COMMIT');
+    if(status==='on_the_way')whatsapp.queueOnTheWay(id).catch(error=>console.error('WhatsApp notification failed',error.message));
+    return repo.getJob(id,user);
   }catch(e){await client.query('ROLLBACK');throw e;}finally{client.release();}
 }
 async function addEvidence(id,files,body,user){await ownedJob(id,user);if(!files?.length)throw http('At least one image is required',422);const client=await repo.pool().connect();try{await client.query('BEGIN');for(const file of files)await client.query(`INSERT INTO job_photos(job_id,photo_type,storage_key,mime_type,uploaded_by) VALUES($1,$2,$3,$4,$5)`,[id,body.type,`/uploads/${file.filename}`,file.mimetype,user.id]);const evidence={serviceNotes:body.serviceNotes,workDescription:body.workDescription,additionalRemarks:body.additionalRemarks};await client.query(`UPDATE technician_jobs SET evidence=COALESCE(evidence,'{}'::jsonb)||$2::jsonb,updated_at=NOW() WHERE id=$1`,[id,JSON.stringify(Object.fromEntries(Object.entries(evidence).filter(([,v])=>v)))]);await client.query('COMMIT');return repo.getJob(id,user);}catch(e){await client.query('ROLLBACK');throw e;}finally{client.release();}}

@@ -1,0 +1,14 @@
+const router=require('express').Router();
+const {z}=require('zod');
+const validate=require('../../middleware/validate');
+const controller=require('../controllers/serviceAreaController');
+const {authenticate,authorize}=require('../../middleware/auth');
+const id=(req,res,next)=>/^\d+$/.test(req.params.id)?next():res.status(422).json({error:'Invalid city id'});
+const boolean=z.preprocess(value=>value==='true'?true:value==='false'?false:value,z.boolean());
+const fields={name:z.string().trim().min(2).max(120),state:z.string().trim().max(120).optional().nullable(),country:z.string().trim().min(2).max(120).default('India'),latitude:z.coerce.number().min(-90).max(90),longitude:z.coerce.number().min(-180).max(180),radiusKm:z.coerce.number().positive().max(500).default(25),active:boolean.default(true)};
+router.use(authenticate,authorize('super_admin','admin','service_manager'));
+router.get('/',controller.list);
+router.post('/',validate(z.object(fields)),controller.create);
+router.patch('/:id',id,validate(z.object(Object.fromEntries(Object.entries(fields).map(([key,value])=>[key,value.optional()]))).refine(v=>Object.keys(v).length,{message:'At least one field is required'})),controller.update);
+router.delete('/:id',id,controller.remove);
+module.exports=router;

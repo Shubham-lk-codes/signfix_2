@@ -7,4 +7,10 @@ module.exports = {
   jwtSecret: process.env.JWT_SECRET || 'development-only-change-me',
   uploadDir: path.resolve(__dirname, '../uploads'),
   corsOrigins: (process.env.CORS_ORIGIN || 'http://localhost:5173').split(',').map((value) => value.trim().replace(/\/$/, '')).filter(Boolean),
+  serviceAreaTokenMinutes: Number(process.env.SERVICE_AREA_TOKEN_MINUTES || 30),
+  whatsapp: {
+    accessToken: process.env.WHATSAPP_ACCESS_TOKEN || '',
+    phoneNumberId: process.env.WHATSAPP_PHONE_NUMBER_ID || '',
+    apiVersion: process.env.WHATSAPP_API_VERSION || 'v23.0',
+  },
 };

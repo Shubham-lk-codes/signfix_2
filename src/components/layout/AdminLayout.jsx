@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ArrowUpRight, Bell, Bot, Boxes, Calculator, ChevronDown, ClipboardList, Headphones, LayoutDashboard, LogOut, Menu, Package, Search, Settings, ShieldCheck, TicketCheck, Users, Wrench, X } from 'lucide-react';
+import { ArrowUpRight, Bell, Bot, Boxes, Calculator, ChevronDown, ClipboardList, Headphones, LayoutDashboard, LogOut, MapPin, Menu, MessageCircle, Package, Search, Settings, ShieldCheck, TicketCheck, Users, Wrench, X } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import signFixLogo from '../../../branding/signfix-logo.svg';
 
@@ -9,6 +9,7 @@ const items = [
   ['Pricing', '/pricing', Calculator],
   ['Orders', '/orders', Package], ['Quotations', '/quotations', ClipboardList],
   ['Service tickets', '/services', TicketCheck], ['Technicians', '/technicians', Wrench],
+  ['Service areas', '/service-areas', MapPin], ['WhatsApp logs', '/whatsapp-notifications', MessageCircle],
   ['Sign assets', '/assets', ShieldCheck], ['AI leads', '/ai-leads', Bot], ['AI knowledge', '/ai-knowledge', Bot], ['AI conversations', '/ai-conversations', Bot], ['Design concepts', '/design-concepts', Bot],
   ['Notifications', '/notifications', Bell], ['Notification templates','/notification-templates',Bell], ['Reports', '/reports', ArrowUpRight],
   ['Roles', '/roles', Users], ['Permissions', '/permissions', ShieldCheck], ['Audit logs', '/audit-logs', ClipboardList], ['Settings', '/settings', Settings],

@@ -3,7 +3,9 @@ const {z}=require('zod');
 const controller=require('../controllers/customerController');
 const validate=require('../middleware/validate');
 const {authenticate,authorize}=require('../middleware/auth');
+const {requireServiceArea}=require('../services/serviceAreaService');
 router.use(authenticate,authorize('customer'));
+router.use(requireServiceArea);
 
 const address=z.object({label:z.string().max(60).default('Other'),addressLine:z.string().min(3),city:z.string().min(2).optional(),state:z.string().min(2).optional(),pincode:z.string().regex(/^\d{5,10}$/).optional(),latitude:z.coerce.number().min(-90).max(90).optional(),longitude:z.coerce.number().min(-180).max(180).optional(),isDefault:z.boolean().default(false)});
 router.get('/dashboard',controller.dashboard);

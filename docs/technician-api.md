@@ -4,6 +4,12 @@ Base URL: `/api/technician`. JSON requests use `Content-Type: application/json`.
 
 The response envelope is `{ "data": ... }`. Errors use `{ "error": "message", "details": ... }` with standard HTTP status codes: `401` unauthenticated, `403` forbidden, `404` missing/unassigned job, `409` invalid workflow state, `415` invalid image type, and `422` invalid input.
 
+## Required service-area validation
+
+There is no technician mobile application in this repository. A mobile client must obtain GPS permission and call `POST /api/technician/location/validate` with `latitude`, `longitude`, and optional `accuracyMeters`. Send the returned `accessToken` on every `/api/technician...` request except location validation as `X-Service-Area-Token: <accessToken>`. Authentication APIs do not require it.
+
+A missing token returns `428 LOCATION_VALIDATION_REQUIRED`. An expired token or location outside configured areas returns `403`. When location cannot be obtained, the client can submit `{ "locationError": "permission_denied" }`, `gps_unavailable`, `position_unavailable`, or `timeout` to receive a stable error code and user-facing message.
+
 ## Authentication
 
 Authentication is shared with the rest of SignFix:
@@ -111,6 +117,8 @@ UI label mapping:
 | Start Inspection | `inspection_started` |
 | Start Work | `work_in_progress` |
 | Complete Work | `completed` |
+
+Changing status to `on_the_way` queues exactly one WhatsApp message for that job. Provider failures never roll back the status update. Admins can inspect delivery results at `GET /api/admin/whatsapp-notifications`.
 
 At least one `before` photo and one `after` photo must exist before `completed` is accepted. Repeated, skipped, or backward transitions return `409`.
 
