@@ -10,7 +10,7 @@ const items = [
   ['Orders', '/orders', Package], ['Quotations', '/quotations', ClipboardList],
   ['Service tickets', '/services', TicketCheck], ['Technicians', '/technicians', Wrench],
   ['Service areas', '/service-areas', MapPin], ['WhatsApp logs', '/whatsapp-notifications', MessageCircle],
-  ['Sign assets', '/assets', ShieldCheck], ['AI leads', '/ai-leads', Bot], ['AI knowledge', '/ai-knowledge', Bot], ['AI conversations', '/ai-conversations', Bot], ['Design concepts', '/design-concepts', Bot],
+  ['Sign assets', '/assets', ShieldCheck], ['AI management', '/ai-management', Bot],
   ['Notifications', '/notifications', Bell], ['Notification templates','/notification-templates',Bell], ['Reports', '/reports', ArrowUpRight],
   ['Roles', '/roles', Users], ['Permissions', '/permissions', ShieldCheck], ['Audit logs', '/audit-logs', ClipboardList], ['Settings', '/settings', Settings],
 ];

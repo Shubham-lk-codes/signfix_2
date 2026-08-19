@@ -10,24 +10,34 @@
     "server": "node server/index.js"
   },
   "dependencies": {
+    "@prisma/client": "^7.9.1",
     "@vitejs/plugin-react": "latest",
     "bcryptjs": "latest",
+    "bullmq": "^6.1.2",
+    "cloudinary": "^2.10.0",
     "cors": "latest",
     "dotenv": "latest",
     "express": "latest",
     "firebase": "^12.17.1",
     "firebase-admin": "^14.2.0",
     "helmet": "latest",
+    "ioredis": "^6.0.0",
     "jsonwebtoken": "latest",
     "lucide-react": "latest",
     "multer": "latest",
+    "openai": "^7.5.0",
     "pg": "latest",
+    "pgvector": "^0.3.0",
+    "qrcode": "^1.5.4",
     "react": "latest",
     "react-dom": "latest",
+    "socket.io": "^4.8.3",
+    "socket.io-client": "^4.8.3",
     "vite": "latest",
     "zod": "latest"
   },
   "devDependencies": {
+    "prisma": "^7.9.1",
     "vitest": "latest"
   }
 }

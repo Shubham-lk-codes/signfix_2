@@ -1,0 +1,41 @@
+generator client {
+  provider = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  extensions = [vector]
+}
+
+model AiKnowledgeDocument {
+  id        BigInt   @id @default(autoincrement()) @map("id")
+  title     String   @db.VarChar(180)
+  category  String?  @db.VarChar(80)
+  content   String
+  status    Boolean  @default(true)
+  embedding Unsupported("vector(3072)")?
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz
+  @@map("ai_knowledge_base")
+}
+
+model AiSetting {
+  id        BigInt   @id @default(autoincrement())
+  key       String   @unique @db.VarChar(100)
+  value     Json
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz
+  @@map("ai_settings")
+}
+
+model AiJob {
+  id        BigInt   @id @default(autoincrement())
+  kind      String   @db.VarChar(60)
+  status    String   @default("queued") @db.VarChar(30)
+  payload   Json
+  result    Json?
+  error     String?
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz
+  @@map("ai_jobs")
+}
