@@ -14,7 +14,7 @@ model AiKnowledgeDocument {
   category  String?  @db.VarChar(80)
   content   String
   status    Boolean  @default(true)
-  embedding Unsupported("vector(3072)")?
+  embedding Unsupported("vector(1536)")?
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz
   @@map("ai_knowledge_base")
