@@ -1,8 +1,563 @@
-import React,{useEffect,useState}from'react';import{Building2,Calculator,LockKeyhole,Save,Settings,ShieldCheck,Wrench}from'lucide-react';import{api,get,post}from'../../api/client';
-const tabs=[['company','Company',Building2],['operations','Operations',Settings],['access','Roles & permissions',ShieldCheck],['services','Service & technician',Wrench],['security','Security',LockKeyhole]];
-export default function SettingsPage(){const[tab,setTab]=useState('company'),[settings,setSettings]=useState(null),[access,setAccess]=useState(null),[categories,setCategories]=useState([]),[notice,setNotice]=useState('');async function load(){const[s,a,c]=await Promise.all([get('/api/admin/settings'),get('/api/admin/settings/access'),get('/api/admin/settings/service-categories')]);setSettings(s);setAccess(a);setCategories(c.data||[])}useEffect(()=>{load().catch(e=>setNotice(e.message))},[]);if(!settings)return <section className="content"><p>Loading settings…</p></section>;return <section className="content"><div className="headline"><div><p>ADMINISTRATION</p><h1>Settings</h1><small>Company, commercial, operational, access-control and security configuration.</small></div></div><div className="settings-tabs">{tabs.map(([id,label,Icon])=><button className={tab===id?'active':''} onClick={()=>setTab(id)} key={id}><Icon size={17}/>{label}</button>)}</div>{notice&&<p className="form-message">{notice}</p>}{tab==='company'&&<Company value={settings.company} update={v=>setSettings({...settings,company:v})} notify={setNotice}/>} {tab==='operations'&&<Operations value={settings.operations} update={v=>setSettings({...settings,operations:v})} notify={setNotice}/>} {tab==='access'&&<Access data={access} reload={load} notify={setNotice}/>} {tab==='services'&&<Services operations={settings.operations} update={v=>setSettings({...settings,operations:v})} categories={categories} reload={load} notify={setNotice}/>} {tab==='security'&&<Security/>}</section>}
-function Company({value,update,notify}){async function upload(e){const file=e.target.files[0];if(!file)return;const body=new FormData();body.append('file',file);try{const result=await api('/api/admin/settings/logo',{method:'POST',body});update({...value,logoUrl:result.url});notify('Logo uploaded securely. Save company information to apply it.')}catch(x){notify(x.message)}}async function save(e){e.preventDefault();const b=Object.fromEntries(new FormData(e.currentTarget));await api('/api/admin/settings/company',{method:'PUT',body:JSON.stringify(b)});update(b);notify('Company information saved.')}return <form className="card settings-form" onSubmit={save}><div className="settings-section-title"><Building2/><div><h2>Company information</h2><p>Used on quotations, invoices, reports and customer communication.</p></div></div><div className="logo-setting">{value.logoUrl?<img src={value.logoUrl} alt="Company logo"/>:<span>LOGO</span>}<label>Upload logo<input type="file" accept="image/jpeg,image/png,image/webp" onChange={upload}/></label><input type="hidden" name="logoUrl" value={value.logoUrl||''}/></div><div className="settings-grid">{[['name','Company name'],['address','Address'],['phone','Phone'],['email','Email','email'],['website','Website','url'],['gstNumber','GST number'],['gstLegalName','GST legal name']].map(([n,l,t='text'])=><label className={n==='address'?'wide':''} key={n}>{l}{n==='address'?<textarea name={n} rows="3" defaultValue={value[n]||''}/>:<input name={n} type={t} defaultValue={value[n]||''} required={['name','address','phone','email','website','gstNumber'].includes(n)}/>}</label>)}</div><button className="primary"><Save size={16}/>Save company information</button></form>}
-function Operations({value,update,notify}){async function save(e){e.preventDefault();const f=new FormData(e.currentTarget),next={...value,taxSettings:{gstEnabled:f.get('gstEnabled')==='on',defaultRate:Number(f.get('defaultRate')),pricesIncludeTax:f.get('pricesIncludeTax')==='on'},currency:{code:f.get('currencyCode'),symbol:f.get('currencySymbol'),locale:f.get('currencyLocale')},pricingSettings:{minimumOrderEnabled:f.get('minimumOrderEnabled')==='on',allowDiscounts:f.get('allowDiscounts')==='on'},notificationSettings:value.notificationSettings,aiSettings:value.aiSettings,orderStatuses:value.orderStatuses,technicianSettings:value.technicianSettings};await api('/api/admin/settings/operations',{method:'PUT',body:JSON.stringify(next)});update(next);notify('Tax, currency and pricing settings saved.')}return <form className="card settings-form" onSubmit={save}><div className="settings-section-title"><Calculator/><div><h2>Tax, currency and pricing</h2><p>Central commercial defaults used throughout the platform.</p></div></div><div className="settings-grid"><label>Default GST rate<input name="defaultRate" type="number" min="0" max="100" defaultValue={value.taxSettings.defaultRate}/></label><label>Currency code<input name="currencyCode" maxLength="3" defaultValue={value.currency.code}/></label><label>Currency symbol<input name="currencySymbol" defaultValue={value.currency.symbol}/></label><label>Currency locale<input name="currencyLocale" defaultValue={value.currency.locale}/></label>{[['gstEnabled','GST enabled',value.taxSettings.gstEnabled],['pricesIncludeTax','Prices include tax',value.taxSettings.pricesIncludeTax],['minimumOrderEnabled','Minimum order enabled',value.pricingSettings.minimumOrderEnabled],['allowDiscounts','Allow discounts',value.pricingSettings.allowDiscounts]].map(([n,l,v])=><label className="setting-toggle" key={n}><input name={n} type="checkbox" defaultChecked={v}/><span>{l}</span></label>)}</div><button className="primary"><Save size={16}/>Save commercial settings</button></form>}
-function Access({data,reload,notify}){const[role,setRole]=useState(data.roles.find(x=>x.name==='admin')?.id||data.roles[0]?.id),assigned=new Set(data.assignments.filter(x=>x.roleId===Number(role)).map(x=>x.permissionId));async function save(e){e.preventDefault();const ids=data.permissions.filter(p=>e.currentTarget.elements[`p_${p.id}`]?.checked).map(p=>p.id);await api(`/api/admin/settings/roles/${role}/permissions`,{method:'PUT',body:JSON.stringify({permissionIds:ids})});notify('Role permissions updated.');reload()}return <form className="card settings-form permission-manager" onSubmit={save}><div className="settings-section-title"><ShieldCheck/><div><h2>Roles and permissions</h2><p>Changes take effect on the user’s next authorized API request.</p></div></div><label>Role<select value={role} onChange={e=>setRole(Number(e.target.value))}>{data.roles.filter(x=>x.name!=='super_admin').map(r=><option value={r.id} key={r.id}>{r.name.replaceAll('_',' ')}</option>)}</select></label><div className="permission-grid">{data.permissions.map(p=><label key={`${role}-${p.id}`}><input name={`p_${p.id}`} type="checkbox" defaultChecked={assigned.has(p.id)}/><span><b>{p.name}</b><small>{p.description}</small></span></label>)}</div><button className="primary">Save role permissions</button></form>}
-function Services({operations,update,categories,reload,notify}){async function add(e){e.preventDefault();await post('/api/admin/settings/service-categories',{name:e.currentTarget.name.value});e.currentTarget.reset();reload()}async function saveOps(e){e.preventDefault();const f=new FormData(e.currentTarget),next={...operations,orderStatuses:f.get('orderStatuses').split('\n').map(x=>x.trim()).filter(Boolean),technicianSettings:{locationTracking:f.get('locationTracking')==='on',completionOtp:f.get('completionOtp')==='on',photoEvidence:f.get('photoEvidence')==='on'}};await api('/api/admin/settings/operations',{method:'PUT',body:JSON.stringify(next)});update(next);notify('Order and technician settings saved.')}return <div className="settings-two"><form className="card settings-form" onSubmit={saveOps}><h2>Order statuses</h2><textarea name="orderStatuses" rows="10" defaultValue={operations.orderStatuses.join('\n')}/><h2>Technician settings</h2>{Object.entries(operations.technicianSettings).map(([k,v])=><label className="setting-toggle" key={k}><input name={k} type="checkbox" defaultChecked={v}/><span>{k.replace(/([A-Z])/g,' $1')}</span></label>)}<button className="primary">Save operations</button></form><article className="card settings-form"><h2>Service categories</h2><form className="inline-setting" onSubmit={add}><input name="name" placeholder="New category" required/><button className="primary">Add</button></form>{categories.map(c=><div className="category-setting" key={c.id}><span>{c.name}</span><small>{c.status?'Active':'Disabled'}</small></div>)}</article></div>}
-function Security(){const controls=[['Secure authentication','JWT tokens expire after eight hours and can be revoked on logout.'],['Role-based authorization','Every protected API checks roles or database-backed permissions.'],['Password hashing','Passwords and OTPs use bcrypt and are never returned by APIs.'],['Input validation','Public and mutation endpoints use bounded Zod schemas.'],['Upload protection','Size, MIME type and binary file signatures are validated.'],['Secure image storage','Company logos require authenticated Cloudinary storage.'],['Audit logging','Logins, settings, permission and important admin mutations are recorded.']];return <div className="security-grid">{controls.map(([t,d])=><article className="card" key={t}><LockKeyhole/><div><h3>{t}</h3><p>{d}</p></div><span>Enabled</span></article>)}</div>}
+import React, { useEffect, useState } from "react";
+import {
+  Building2,
+  Calculator,
+  LockKeyhole,
+  Save,
+  Settings,
+  ShieldCheck,
+  Wrench,
+} from "lucide-react";
+import { api, get, post } from "../../api/client";
+const tabs = [
+  ["company", "Company", Building2],
+  ["operations", "Operations", Settings],
+  ["access", "Roles & permissions", ShieldCheck],
+  ["services", "Service & technician", Wrench],
+  ["security", "Security", LockKeyhole],
+];
+export default function SettingsPage() {
+  const [tab, setTab] = useState("company"),
+    [settings, setSettings] = useState(null),
+    [access, setAccess] = useState(null),
+    [categories, setCategories] = useState([]),
+    [notice, setNotice] = useState("");
+  async function load() {
+    const [s, a, c] = await Promise.all([
+      get("/api/admin/settings"),
+      get("/api/admin/settings/access"),
+      get("/api/admin/settings/service-categories"),
+    ]);
+    setSettings(s);
+    setAccess(a);
+    setCategories(c.data || []);
+  }
+  useEffect(() => {
+    load().catch((e) => setNotice(e.message));
+  }, []);
+  if (!settings)
+    return (
+      <section className="content">
+        <p>Loading settings…</p>
+      </section>
+    );
+  return (
+    <section className="content">
+      <div className="headline">
+        <div>
+          <p>ADMINISTRATION</p>
+          <h1>Settings</h1>
+          <small>
+            Company, commercial, operational, access-control and security
+            configuration.
+          </small>
+        </div>
+      </div>
+      <div className="settings-tabs">
+        {tabs.map(([id, label, Icon]) => (
+          <button
+            className={tab === id ? "active" : ""}
+            onClick={() => setTab(id)}
+            key={id}
+          >
+            <Icon size={17} />
+            {label}
+          </button>
+        ))}
+      </div>
+      {notice && <p className="form-message">{notice}</p>}
+      {tab === "company" && (
+        <Company
+          value={settings.company}
+          update={(v) => setSettings({ ...settings, company: v })}
+          notify={setNotice}
+        />
+      )}{" "}
+      {tab === "operations" && (
+        <Operations
+          value={settings.operations}
+          update={(v) => setSettings({ ...settings, operations: v })}
+          notify={setNotice}
+        />
+      )}{" "}
+      {tab === "access" && (
+        <Access data={access} reload={load} notify={setNotice} />
+      )}{" "}
+      {tab === "services" && (
+        <Services
+          operations={settings.operations}
+          update={(v) => setSettings({ ...settings, operations: v })}
+          categories={categories}
+          reload={load}
+          notify={setNotice}
+        />
+      )}{" "}
+      {tab === "security" && <Security />}
+    </section>
+  );
+}
+function Company({ value, update, notify }) {
+  async function upload(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    const body = new FormData();
+    body.append("file", file);
+    try {
+      const result = await api("/api/admin/settings/logo", {
+        method: "POST",
+        body,
+      });
+      update({ ...value, logoUrl: result.url });
+      notify("Logo uploaded securely. Save company information to apply it.");
+    } catch (x) {
+      notify(x.message);
+    }
+  }
+  async function save(e) {
+    e.preventDefault();
+    const b = Object.fromEntries(new FormData(e.currentTarget));
+    await api("/api/admin/settings/company", {
+      method: "PUT",
+      body: JSON.stringify(b),
+    });
+    update(b);
+    notify("Company information saved.");
+  }
+  return (
+    <form className="card settings-form" onSubmit={save}>
+      <div className="settings-section-title">
+        <Building2 />
+        <div>
+          <h2>Company information</h2>
+          <p>
+            Used on quotations, invoices, reports and customer communication.
+          </p>
+        </div>
+      </div>
+      <div className="logo-setting">
+        {value.logoUrl ? (
+          <img src={value.logoUrl} alt="Company logo" />
+        ) : (
+          <span>LOGO</span>
+        )}
+        <label>
+          Upload logo
+          <input
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            onChange={upload}
+          />
+        </label>
+        <input type="hidden" name="logoUrl" value={value.logoUrl || ""} />
+      </div>
+      <div className="settings-grid">
+        {[
+          ["name", "Company name"],
+          ["address", "Address"],
+          ["phone", "Phone"],
+          ["email", "Email", "email"],
+          ["website", "Website", "url"],
+          ["gstNumber", "GST number"],
+          ["gstLegalName", "GST legal name"],
+        ].map(([n, l, t = "text"]) => (
+          <label className={n === "address" ? "wide" : ""} key={n}>
+            {l}
+            {n === "address" ? (
+              <textarea name={n} rows="3" defaultValue={value[n] || ""} />
+            ) : (
+              <input
+                name={n}
+                type={t}
+                defaultValue={value[n] || ""}
+                required={[
+                  "name",
+                  "address",
+                  "phone",
+                  "email",
+                  "website",
+                  "gstNumber",
+                ].includes(n)}
+              />
+            )}
+          </label>
+        ))}
+      </div>
+      <button className="primary">
+        <Save size={16} />
+        Save company information
+      </button>
+    </form>
+  );
+}
+function Operations({ value, update, notify }) {
+  async function save(e) {
+    e.preventDefault();
+    const f = new FormData(e.currentTarget),
+      next = {
+        ...value,
+        taxSettings: {
+          gstEnabled: f.get("gstEnabled") === "on",
+          defaultRate: Number(f.get("defaultRate")),
+          pricesIncludeTax: f.get("pricesIncludeTax") === "on",
+        },
+        currency: {
+          code: f.get("currencyCode"),
+          symbol: f.get("currencySymbol"),
+          locale: f.get("currencyLocale"),
+        },
+        pricingSettings: {
+          minimumOrderEnabled: f.get("minimumOrderEnabled") === "on",
+          allowDiscounts: f.get("allowDiscounts") === "on",
+          defaultDiscount: Number(f.get("defaultDiscount")),
+          minimumOrderValue: Number(f.get("minimumOrderValue")),
+          roundFinalAmount: f.get("roundFinalAmount") === "on",
+        },
+        notificationSettings: Object.fromEntries(
+          [
+            "order",
+            "quotation",
+            "payment",
+            "service",
+            "technician",
+            "completion",
+            "promotion",
+          ].map((key) => [key, f.get(`notify_${key}`) === "on"]),
+        ),
+        aiSettings: {
+          enabled: f.get("aiEnabled") === "on",
+          customerAssistant: f.get("customerAssistant") === "on",
+          designDemo: f.get("designDemo") === "on",
+        },
+        orderStatuses: value.orderStatuses,
+        technicianSettings: value.technicianSettings,
+      };
+    await api("/api/admin/settings/operations", {
+      method: "PUT",
+      body: JSON.stringify(next),
+    });
+    update(next);
+    notify("Commercial, notification and AI settings saved.");
+  }
+  return (
+    <form className="card settings-form" onSubmit={save}>
+      <div className="settings-section-title">
+        <Calculator />
+        <div>
+          <h2>Tax, currency and pricing</h2>
+          <p>Central commercial defaults used throughout the platform.</p>
+        </div>
+      </div>
+      <div className="settings-grid">
+        <label>
+          Default GST rate
+          <input
+            name="defaultRate"
+            type="number"
+            min="0"
+            max="100"
+            defaultValue={value.taxSettings.defaultRate}
+          />
+        </label>
+        <label>
+          Currency code
+          <input
+            name="currencyCode"
+            maxLength="3"
+            defaultValue={value.currency.code}
+          />
+        </label>
+        <label>
+          Currency symbol
+          <input name="currencySymbol" defaultValue={value.currency.symbol} />
+        </label>
+        <label>
+          Currency locale
+          <input name="currencyLocale" defaultValue={value.currency.locale} />
+        </label>
+        <label>
+          Minimum order value
+          <input
+            name="minimumOrderValue"
+            type="number"
+            min="0"
+            defaultValue={value.pricingSettings.minimumOrderValue || 0}
+          />
+        </label>
+        <label>
+          Default discount
+          <input
+            name="defaultDiscount"
+            type="number"
+            min="0"
+            defaultValue={value.pricingSettings.defaultDiscount || 0}
+          />
+        </label>
+        {[
+          ["gstEnabled", "GST enabled", value.taxSettings.gstEnabled],
+          [
+            "pricesIncludeTax",
+            "Prices include tax",
+            value.taxSettings.pricesIncludeTax,
+          ],
+          [
+            "minimumOrderEnabled",
+            "Minimum order enabled",
+            value.pricingSettings.minimumOrderEnabled,
+          ],
+          [
+            "allowDiscounts",
+            "Allow discounts",
+            value.pricingSettings.allowDiscounts,
+          ],
+          [
+            "roundFinalAmount",
+            "Round final amount",
+            value.pricingSettings.roundFinalAmount,
+          ],
+        ].map(([n, l, v]) => (
+          <label className="setting-toggle" key={n}>
+            <input name={n} type="checkbox" defaultChecked={v} />
+            <span>{l}</span>
+          </label>
+        ))}
+      </div>
+      <div className="settings-subsection">
+        <h3>Notification settings</h3>
+        <p>Choose which platform events can trigger customer notifications.</p>
+        <div className="setting-toggle-grid">
+          {[
+            "order",
+            "quotation",
+            "payment",
+            "service",
+            "technician",
+            "completion",
+            "promotion",
+          ].map((key) => (
+            <label className="setting-toggle" key={key}>
+              <input
+                name={`notify_${key}`}
+                type="checkbox"
+                defaultChecked={value.notificationSettings[key] !== false}
+              />
+              <span>{key} notifications</span>
+            </label>
+          ))}
+        </div>
+      </div>
+      <div className="settings-subsection">
+        <h3>AI settings</h3>
+        <p>
+          Global switches for AI capabilities. Detailed policies remain in AI
+          Management.
+        </p>
+        <div className="setting-toggle-grid">
+          {[
+            ["aiEnabled", "Enable AI platform", value.aiSettings.enabled],
+            [
+              "customerAssistant",
+              "Customer AI assistant",
+              value.aiSettings.customerAssistant,
+            ],
+            ["designDemo", "AI design demo", value.aiSettings.designDemo],
+          ].map(([name, label, checked]) => (
+            <label className="setting-toggle" key={name}>
+              <input name={name} type="checkbox" defaultChecked={checked} />
+              <span>{label}</span>
+            </label>
+          ))}
+        </div>
+      </div>
+      <button className="primary">
+        <Save size={16} />
+        Save commercial settings
+      </button>
+    </form>
+  );
+}
+function Access({ data, reload, notify }) {
+  const [role, setRole] = useState(
+      data.roles.find((x) => x.name === "admin")?.id || data.roles[0]?.id,
+    ),
+    assigned = new Set(
+      data.assignments
+        .filter((x) => x.roleId === Number(role))
+        .map((x) => x.permissionId),
+    );
+  async function save(e) {
+    e.preventDefault();
+    const ids = data.permissions
+      .filter((p) => e.currentTarget.elements[`p_${p.id}`]?.checked)
+      .map((p) => p.id);
+    await api(`/api/admin/settings/roles/${role}/permissions`, {
+      method: "PUT",
+      body: JSON.stringify({ permissionIds: ids }),
+    });
+    notify("Role permissions updated.");
+    reload();
+  }
+  return (
+    <form className="card settings-form permission-manager" onSubmit={save}>
+      <div className="settings-section-title">
+        <ShieldCheck />
+        <div>
+          <h2>Roles and permissions</h2>
+          <p>Changes take effect on the user’s next authorized API request.</p>
+        </div>
+      </div>
+      <label>
+        Role
+        <select value={role} onChange={(e) => setRole(Number(e.target.value))}>
+          {data.roles
+            .filter((x) => x.name !== "super_admin")
+            .map((r) => (
+              <option value={r.id} key={r.id}>
+                {r.name.replaceAll("_", " ")}
+              </option>
+            ))}
+        </select>
+      </label>
+      <div className="permission-grid">
+        {data.permissions.map((p) => (
+          <label key={`${role}-${p.id}`}>
+            <input
+              name={`p_${p.id}`}
+              type="checkbox"
+              defaultChecked={assigned.has(p.id)}
+            />
+            <span>
+              <b>{p.name}</b>
+              <small>{p.description}</small>
+            </span>
+          </label>
+        ))}
+      </div>
+      <button className="primary">Save role permissions</button>
+    </form>
+  );
+}
+function Services({ operations, update, categories, reload, notify }) {
+  async function add(e) {
+    e.preventDefault();
+    await post("/api/admin/settings/service-categories", {
+      name: e.currentTarget.name.value,
+    });
+    e.currentTarget.reset();
+    reload();
+  }
+  async function saveOps(e) {
+    e.preventDefault();
+    const f = new FormData(e.currentTarget),
+      next = {
+        ...operations,
+        orderStatuses: f
+          .get("orderStatuses")
+          .split("\n")
+          .map((x) => x.trim())
+          .filter(Boolean),
+        technicianSettings: {
+          locationTracking: f.get("locationTracking") === "on",
+          completionOtp: f.get("completionOtp") === "on",
+          photoEvidence: f.get("photoEvidence") === "on",
+        },
+      };
+    await api("/api/admin/settings/operations", {
+      method: "PUT",
+      body: JSON.stringify(next),
+    });
+    update(next);
+    notify("Order and technician settings saved.");
+  }
+  async function toggleCategory(category) {
+    await api(`/api/admin/settings/service-categories/${category.id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ status: !category.status }),
+    });
+    notify(`${category.name} ${category.status ? "disabled" : "activated"}.`);
+    reload();
+  }
+  return (
+    <div className="settings-two">
+      <form className="card settings-form" onSubmit={saveOps}>
+        <h2>Order statuses</h2>
+        <textarea
+          name="orderStatuses"
+          rows="10"
+          defaultValue={operations.orderStatuses.join("\n")}
+        />
+        <h2>Technician settings</h2>
+        {Object.entries(operations.technicianSettings).map(([k, v]) => (
+          <label className="setting-toggle" key={k}>
+            <input name={k} type="checkbox" defaultChecked={v} />
+            <span>{k.replace(/([A-Z])/g, " $1")}</span>
+          </label>
+        ))}
+        <button className="primary">Save operations</button>
+      </form>
+      <article className="card settings-form">
+        <h2>Service categories</h2>
+        <form className="inline-setting" onSubmit={add}>
+          <input name="name" placeholder="New category" required />
+          <button className="primary">Add</button>
+        </form>
+        {categories.map((c) => (
+          <div className="category-setting" key={c.id}>
+            <span>{c.name}</span>
+            <span>
+              <small>{c.status ? "Active" : "Disabled"}</small>
+              <button className="outline" onClick={() => toggleCategory(c)}>
+                {c.status ? "Disable" : "Activate"}
+              </button>
+            </span>
+          </div>
+        ))}
+      </article>
+    </div>
+  );
+}
+function Security() {
+  const controls = [
+    [
+      "Secure authentication",
+      "JWT tokens expire after eight hours and can be revoked on logout.",
+    ],
+    [
+      "Role-based authorization",
+      "Every protected API checks roles or database-backed permissions.",
+    ],
+    [
+      "Password hashing",
+      "Passwords and OTPs use bcrypt and are never returned by APIs.",
+    ],
+    [
+      "Input validation",
+      "Public and mutation endpoints use bounded Zod schemas.",
+    ],
+    [
+      "Upload protection",
+      "Size, MIME type and binary file signatures are validated.",
+    ],
+    [
+      "Secure image storage",
+      "Company logos require authenticated Cloudinary storage.",
+    ],
+    [
+      "Audit logging",
+      "Logins, settings, permission and important admin mutations are recorded.",
+    ],
+  ];
+  return (
+    <div className="security-grid">
+      {controls.map(([t, d]) => (
+        <article className="card" key={t}>
+          <LockKeyhole />
+          <div>
+            <h3>{t}</h3>
+            <p>{d}</p>
+          </div>
+          <span>Enabled</span>
+        </article>
+      ))}
+    </div>
+  );
+}
