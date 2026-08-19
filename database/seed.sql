@@ -51,3 +51,12 @@ INSERT INTO product_categories(name) VALUES ('Illuminated'),('Non-illuminated'),
 INSERT INTO materials(name,price_per_sqft) VALUES ('Acrylic',100),('ACP',130),('PVC',80),('Flex',50),('Stainless Steel',250),('Aluminium',180) ON CONFLICT (name) DO NOTHING;
 INSERT INTO lighting_options(name,price_per_sqft) VALUES ('No Lighting',0),('LED',120),('Backlit',160),('Neon',240),('Front Lit',140),('Custom',0) ON CONFLICT (name) DO NOTHING;
 INSERT INTO service_categories(name) VALUES ('LED Problem'),('Electrical Issue'),('Physical Damage'),('Sign Board Repair'),('Replacement'),('Installation'),('Reinstallation'),('Cleaning'),('Maintenance'),('Inspection'),('Emergency'),('Other') ON CONFLICT (name) DO NOTHING;
+INSERT INTO notification_templates(name,event_key,category,title,body,channels,status) VALUES
+('Order update','order.status','order','Order {{orderNo}} updated','Your order is now {{status}}.','["push","email"]',TRUE),
+('Quotation ready','quotation.sent','quotation','Quotation {{quotationNo}} ready','Your quotation is ready for review.','["push","email","whatsapp"]',TRUE),
+('Payment receipt','payment.received','payment','Payment received','We received your payment of {{amount}}.','["push","email"]',TRUE),
+('Service update','service.status','service','Service {{ticketNo}} updated','Your service request is now {{status}}.','["push","whatsapp"]',TRUE),
+('Technician assigned','technician.assigned','technician','Technician assigned','{{technicianName}} has been assigned to your request.','["push","whatsapp"]',TRUE),
+('Work completed','completion.done','completion','Work completed','Work for {{ticketNo}} has been completed.','["push","email","whatsapp"]',TRUE),
+('Promotion','promotion.campaign','promotion','{{offerTitle}}','{{offerMessage}}','["push","email"]',TRUE)
+ON CONFLICT(event_key) DO NOTHING;

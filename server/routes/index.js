@@ -52,8 +52,15 @@ router.get('/admin/dashboard', authenticate, authorize('super_admin', 'admin', '
 router.post('/uploads', authenticate, upload.single('file'), (req, res) => req.file ? res.status(201).json({ url: `/api/uploads/${req.file.filename}`, kind: req.body.kind }) : res.status(422).json({ error: 'A valid image or PDF is required' }));
 router.get('/uploads/:filename', authenticate, (req,res,next)=>{const filename=path.basename(req.params.filename);if(filename!==req.params.filename)return res.status(400).json({error:'Invalid filename'});res.sendFile(path.join(uploadDir,filename),error=>{if(error&&!res.headersSent)next(Object.assign(error,{status:error.statusCode||404}))});});
 router.post('/ai/chat', authenticate, misc.aiChat);
+router.get('/reports/:type/export', authenticate, permit('reports.export'), misc.exportReport);
 router.get('/reports/:type', authenticate, permit('reports.view'), misc.report);
 router.get('/notifications/status', authenticate, authorize('super_admin', 'admin'), notifications.status);
+router.get('/notifications/templates',authenticate,authorize('super_admin','admin'),notifications.templates);
+router.post('/notifications/templates',authenticate,authorize('super_admin','admin'),notifications.createTemplate);
+router.patch('/notifications/templates/:id',authenticate,authorize('super_admin','admin'),notifications.updateTemplate);
+router.delete('/notifications/templates/:id',authenticate,authorize('super_admin','admin'),notifications.deleteTemplate);
+router.post('/notifications/dispatch',authenticate,authorize('super_admin','admin'),notifications.dispatch);
+router.get('/notifications/deliveries',authenticate,authorize('super_admin','admin'),notifications.deliveries);
 router.post('/notifications/register', authenticate, validate(z.object({ token:z.string().min(20), platform:z.enum(['web','android','ios']).optional() })), notifications.register);
 router.post('/notifications/send', authenticate, authorize('super_admin', 'admin'), validate(z.object({ title:z.string().min(2).max(160), body:z.string().min(2).max(1000), audience:z.enum(['all','customers','technicians','admins']).default('all'), data:z.record(z.any()).optional() })), notifications.send);
 module.exports = router;
