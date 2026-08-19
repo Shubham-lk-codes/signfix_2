@@ -1,10 +1,10 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const database = require('../database');
-const { jwtSecret } = require('../config');
+const { jwtSecret,jwtIssuer,jwtAudience } = require('../config');
 const crypto = require('crypto');
 
-function issueToken(user) { const jti=crypto.randomUUID(); return jwt.sign(user,jwtSecret,{expiresIn:'8h',jwtid:jti}); }
+function issueToken(user) { const jti=crypto.randomUUID(); return jwt.sign(user,jwtSecret,{algorithm:'HS256',expiresIn:'8h',jwtid:jti,issuer:jwtIssuer,audience:jwtAudience}); }
 
 async function login(req, res) {
   const email = req.body.email.trim().toLowerCase();
@@ -14,6 +14,7 @@ async function login(req, res) {
   if (req.body.portal === 'admin' && !adminRoles.includes(user.role)) return res.status(403).json({ error: 'Admin access required' });
   if (req.body.portal && req.body.portal !== 'admin' && req.body.portal !== user.role) return res.status(403).json({ error: `${req.body.portal} access required` });
   const safeUser = { id: user.id, name: user.name, email: user.email, role: user.role };
+  await database.getPool().query('INSERT INTO audit_logs(user_id,action,entity_type,metadata) VALUES($1,$2,$3,$4::jsonb)',[user.id,'auth.login','user',JSON.stringify({portal:req.body.portal||'unspecified',ip:req.ip})]);
   res.json({ token: issueToken(safeUser), user: safeUser });
 }
 function me(req, res) { res.json({ user: req.user }); }

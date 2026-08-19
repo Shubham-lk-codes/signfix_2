@@ -13,6 +13,7 @@ import ServicesPage from '../../pages/admin/ServicesPage';
 import TechniciansPage from '../../pages/admin/TechniciansPage';
 import AssetsPage from '../../pages/admin/AssetsPage';
 import AIManagementPage from '../../pages/admin/AIManagementPage';
+import SettingsPage from '../../pages/admin/SettingsPage';
 
 const resources = { customers:'customers', products:'products', categories:'categories', materials:'materials', lighting:'lighting', accessories:'accessories', 'installation-options':'installation-options', orders:'orders', quotations:'quotations', services:'services', technicians:'technicians', assets:'assets', 'ai-leads':'ai-leads', 'ai-knowledge':'ai-knowledge', 'ai-conversations':'ai-conversations', 'design-concepts':'design-concepts', 'notification-templates':'notification-templates', settings:'settings', roles:'roles', permissions:'permissions', 'audit-logs':'audit-logs' };
 
@@ -26,6 +27,7 @@ export default function AdminRouter({ path, navigate }) {
     : path === '/technicians' ? <TechniciansPage />
     : path === '/assets' ? <AssetsPage />
     : path === '/ai-management' ? <AIManagementPage />
+    : path === '/settings' ? <SettingsPage />
     : path === '/reports' ? <ReportsPage />
       : path === '/notifications' ? <NotificationsPage />
       : path === '/pricing' ? <PricingPage />

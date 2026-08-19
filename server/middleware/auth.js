@@ -1,10 +1,10 @@
 const jwt = require('jsonwebtoken');
-const { jwtSecret } = require('../config');
+const { jwtSecret,jwtIssuer,jwtAudience } = require('../config');
 
 async function authenticate(req, res, next) {
   try {
     const token = (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
-    req.user = jwt.verify(token, jwtSecret);
+    req.user = jwt.verify(token, jwtSecret,{algorithms:['HS256'],issuer:jwtIssuer,audience:jwtAudience});
     if (req.user.jti) { const database=require('../database'); const revoked=await database.getPool().query('SELECT 1 FROM revoked_tokens WHERE jti=$1 AND expires_at>NOW()',[req.user.jti]); if(revoked.rowCount) return res.status(401).json({error:'Token has been revoked'}); }
     next();
   } catch (_) {
