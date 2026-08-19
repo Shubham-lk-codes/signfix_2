@@ -16,7 +16,7 @@ router.delete('/addresses/:id',controller.deleteAddress);
 router.get('/orders/:id',controller.order);
 router.get('/quotations',controller.quotations);
 router.get('/quotations/:id',controller.quotation);
-router.post('/quotations/:id/action',validate(z.object({action:z.enum(['approve','request_changes']),notes:z.string().max(1000).optional()})),controller.quotationAction);
+router.post('/quotations/:id/action',validate(z.object({action:z.enum(['approve','request_changes','reject']),notes:z.string().max(1000).optional()})),controller.quotationAction);
 router.get('/quotations/:id/pdf',controller.quotationPdf);
 router.get('/services/:id/tracking',controller.serviceTracking);
 router.get('/notifications',controller.notifications);

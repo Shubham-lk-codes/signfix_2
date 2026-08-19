@@ -8,6 +8,8 @@ const customerArea=(req,res,next)=>req.user.role==='customer'?requireServiceArea
 router.use(authenticate);
 router.use(customerArea);
 router.get('/', controller.list);
+router.get('/:id', authorize('super_admin','admin','sales_manager','customer'), controller.detail);
 router.post('/', authorize('customer', 'super_admin', 'admin'), validate(z.object({ product: z.string().min(1), length: z.coerce.number().positive(), width: z.coerce.number().positive(), quantity: z.coerce.number().int().positive(), material: z.string().optional(), lighting: z.string().optional(), unit: z.enum(['ft','in','cm','m']).default('ft'), estimatedPrice: z.coerce.number().nonnegative().optional(), address: z.union([z.string(),z.record(z.any())]).optional(),designFiles:z.array(z.string()).max(10).optional(),designConceptId:z.coerce.number().int().positive().optional(),installation:z.boolean().optional(),transportation:z.boolean().optional(),design:z.boolean().optional(),electricalWork:z.boolean().optional(),mountingStructure:z.boolean().optional(),accessories:z.boolean().optional(),customization:z.boolean().optional(),customerDetails:z.record(z.any()).optional() }).passthrough()), controller.create);
 router.patch('/:id/status', authorize('super_admin', 'admin', 'sales_manager'), controller.updateStatus);
+router.patch('/:id', authorize('super_admin','admin','sales_manager'), validate(z.object({specifications:z.record(z.any()).optional(),adminNotes:z.string().max(4000).optional(),technicianId:z.coerce.number().int().positive().nullable().optional(),status:z.string().max(40).optional()})), controller.update);
 module.exports = router;
