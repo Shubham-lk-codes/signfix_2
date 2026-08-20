@@ -77,13 +77,14 @@ The tracking response contains the current status, technician name/contact, job 
 
 | Method | Endpoint | Purpose |
 |---|---|---|
+| GET | `/customer/ai/config` | Assistant name, capabilities, requirement fields, actions, and commercial guardrails |
 | POST | `/customer/ai/chat` | Persistent SignFix AI Assistant message |
 | GET | `/customer/ai/conversations` | Conversation history |
 | POST | `/customer/ai/leads` | Capture requirement/product/budget/contact |
 | GET | `/customer/notifications` | Customer push-notification feed |
 | PATCH | `/customer/notifications/:id/read` | Mark owned notification read |
 
-The included assistant is a safe deterministic fallback. Replace its reply function with an LLM provider while retaining its disclaimer and escalation rules.
+Chat requests may include a structured `requirements` object containing business type, sign type, length, width, unit, location, material, lighting, optional budget, and installation requirement. Responses return collected and missing fields, the next question, estimate readiness, structured mobile actions, and escalation state. Conversations and lead requirements are persisted as metadata. The deterministic fallback and OpenAI-backed assistant both retain the commercial disclaimer and escalation rules.
 
 ## Deployment checklist
 
