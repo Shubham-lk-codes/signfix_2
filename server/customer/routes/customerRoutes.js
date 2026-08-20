@@ -24,6 +24,9 @@ router.post('/quotations/:id/action',validate(z.object({action:z.enum(['approve'
 router.get('/quotations/:id/pdf',controller.quotationPdf);
 router.get('/services/:id/tracking',controller.serviceTracking);
 router.get('/notifications',controller.notifications);
+router.get('/notifications/config',controller.notificationConfig);
+router.post('/notifications/devices',validate(z.object({token:z.string().min(20),platform:z.enum(['android','ios','web'])})),controller.registerNotificationDevice);
+router.delete('/notifications/devices',validate(z.object({token:z.string().min(20)})),controller.unregisterNotificationDevice);
 router.patch('/notifications/:id/read',controller.readNotification);
 
 const design=z.object({orderNo:z.string().optional(),signType:z.string().min(1),businessText:z.string().min(1),style:z.string().optional(),lighting:z.string().optional(),background:z.string().optional(),storefrontUrl:z.string().optional(),notes:z.string().max(2000).optional()});

@@ -24,6 +24,9 @@ async function quotationAction(req,res){res.json(await repo.quotationAction(req.
 async function quotationPdf(req,res){const q=await repo.quotation(req.user.id,req.params.id);const product=q.productDetails||{};const lines=[`Quotation: ${q.quotationNo}`,`Order: ${q.orderNo}`,`Product: ${product.product||'-'}`,`Dimensions: ${product.length||'-'} x ${product.width||'-'} ${product.unit||''}`,`Material: ${product.material||'-'}`,`Lighting: ${product.lighting||'-'}`,`Quantity: ${q.quantity||'-'}`,...q.items.map(item=>`${item.description}: ${item.quantity} x INR ${item.unitPrice} = INR ${item.amount}`),`Subtotal: INR ${q.subtotal||0}`,`Installation: INR ${q.installation||0}`,`Transportation: INR ${q.transportation||0}`,`Discount: INR ${q.discount||0}`,`GST (${q.gstRate||0}%): INR ${q.gst||0}`,`Final amount: INR ${q.finalAmount}`,`Validity: ${q.validUntil||'-'}`,`Terms: ${q.terms||'-'}`];res.set({'Content-Type':'application/pdf','Content-Disposition':`attachment; filename="${q.quotationNo}.pdf"`,'Cache-Control':'private, no-store'}).send(simplePdf('SignFix Quotation',lines));}
 async function serviceTracking(req,res){res.json(await repo.serviceTracking(req.user.id,req.params.id));}
 async function notifications(req,res){res.json({data:await repo.notifications(req.user.id)});}
+function notificationConfig(req,res){res.json({pushConfigured:require('../../services/firebaseService').isConfigured(),events:['order.submitted','quotation.generated','quotation.updated','order.approved','order.production_started','order.ready','service.technician_assigned','service.technician_on_the_way','service.technician_reached','service.work_started','service.work_completed','service.completed']});}
+async function registerNotificationDevice(req,res){res.status(201).json(await repo.registerNotificationDevice(req.user.id,req.body));}
+async function unregisterNotificationDevice(req,res){res.json(await repo.unregisterNotificationDevice(req.user.id,req.body.token));}
 async function readNotification(req,res){res.json(await repo.readNotification(req.user.id,req.params.id));}
 async function createDesign(req,res){res.status(201).json(await repo.createDesign(req.user.id,req.body));}
 async function design(req,res){res.json(await repo.design(req.user.id,req.params.id));}
@@ -39,4 +42,4 @@ async function conversations(req,res){res.json({data:await repo.conversations(re
 async function createLead(req,res){res.status(201).json(await repo.createLead(req.user.id,req.body));
 
 }
-module.exports={dashboard,orderOptions,serviceOptions,profile,updateProfile,orders,services,addAddress,deleteAddress,order,quotations,quotation,quotationAction,quotationPdf,serviceTracking,notifications,readNotification,createDesign,design,generateDesign,designAction,aiConfig,aiChat,conversations,createLead};
+module.exports={dashboard,orderOptions,serviceOptions,profile,updateProfile,orders,services,addAddress,deleteAddress,order,quotations,quotation,quotationAction,quotationPdf,serviceTracking,notifications,notificationConfig,registerNotificationDevice,unregisterNotificationDevice,readNotification,createDesign,design,generateDesign,designAction,aiConfig,aiChat,conversations,createLead};

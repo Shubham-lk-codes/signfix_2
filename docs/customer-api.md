@@ -82,7 +82,12 @@ The tracking response contains the current status, technician name/contact, job 
 | GET | `/customer/ai/conversations` | Conversation history |
 | POST | `/customer/ai/leads` | Capture requirement/product/budget/contact |
 | GET | `/customer/notifications` | Customer push-notification feed |
+| GET | `/customer/notifications/config` | Firebase readiness and supported customer event keys |
+| POST | `/customer/notifications/devices` | Register an Android, iOS, or web FCM token |
+| DELETE | `/customer/notifications/devices` | Deactivate the current device token |
 | PATCH | `/customer/notifications/:id/read` | Mark owned notification read |
+
+Push events include order submission/approval/production/readiness, quotation generation/update, technician assignment/on-the-way/arrival, work start/completion, and final service completion. Feed records include an `eventKey` and entity navigation data such as `orderNo`, `quotationNo`, or `ticketNo`.
 
 Chat requests may include a structured `requirements` object containing business type, sign type, length, width, unit, location, material, lighting, optional budget, and installation requirement. Responses return collected and missing fields, the next question, estimate readiness, structured mobile actions, and escalation state. Conversations and lead requirements are persisted as metadata. The deterministic fallback and OpenAI-backed assistant both retain the commercial disclaimer and escalation rules.
 
