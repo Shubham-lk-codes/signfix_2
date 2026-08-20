@@ -67,9 +67,11 @@ Draft and cancelled quotations are never exposed to customers. Detail responses 
 
 ## Service and tracking
 
-Upload one or more photos, then submit `POST /services` with `category`, `description`, `address`, optional GPS coordinates, `photos`, and priority. List with `GET /services`; track an owned request at `GET /customer/services/:ticketId/tracking`. Service IDs use `SB-SRV-YYYY-NNNNNN`.
+Fetch the simple five-step mobile flow and active categories with `GET /customer/service-options`. Upload one or more camera/gallery photos, then submit `POST /services` with `category`, either `remarks` or `description`, an address string or structured address, optional GPS coordinates, and `photos`. List with `GET /customer/services`; track an owned request at `GET /customer/services/:ticketId/tracking`. Service IDs use `SB-SRV-YYYY-NNNNNN` and successful creation returns `Your service request has been submitted.`
 
-The tracking response contains the current status, technician name/contact, location, photos/evidence, estimated visit, and recorded timeline. Supported business statuses are: `submitted`, `under_review`, `technician_assigned`, `accepted`, `on_the_way`, `reached_location`, `inspection_started`, `work_in_progress`, `completed`, `customer_confirmed`, and `closed`.
+Customer priority selection is exposed only when `CUSTOMER_CAN_SELECT_SERVICE_PRIORITY=true`. Otherwise the server forces `normal`, except the `Emergency` category is automatically assigned emergency priority.
+
+The tracking response contains the current status, technician name/contact, job location, customer service photos, technician evidence photos, customer/admin/work notes, and estimated visit. Its normalized `timeline` always contains every mobile stage with `completed`, `current`, or `upcoming` state plus the recorded timestamp and notes when available. Supported business statuses are: `submitted`, `under_review`, `technician_assigned`, `accepted`, `on_the_way`, `reached_location`, `inspection_started`, `work_in_progress`, `completed`, `customer_confirmed`, and `closed`.
 
 ## AI support, leads, and notifications
 

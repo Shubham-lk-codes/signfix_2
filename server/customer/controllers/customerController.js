@@ -3,6 +3,7 @@ const {simplePdf}=require('../../utils/pdf');
 async function dashboard(req,res){
     res.json(await repo.dashboard(req.user.id));}
 async function orderOptions(req,res){res.json(await repo.orderOptions());}
+async function serviceOptions(req,res){res.json(await repo.serviceOptions());}
 async function profile(req,res){
     res.json(await repo.profile(req.user.id));
 
@@ -35,4 +36,4 @@ async function conversations(req,res){res.json({data:await repo.conversations(re
 async function createLead(req,res){res.status(201).json(await repo.createLead(req.user.id,req.body));
 
 }
-module.exports={dashboard,orderOptions,profile,updateProfile,orders,services,addAddress,deleteAddress,order,quotations,quotation,quotationAction,quotationPdf,serviceTracking,notifications,readNotification,createDesign,design,generateDesign,designAction,aiChat,conversations,createLead};
+module.exports={dashboard,orderOptions,serviceOptions,profile,updateProfile,orders,services,addAddress,deleteAddress,order,quotations,quotation,quotationAction,quotationPdf,serviceTracking,notifications,readNotification,createDesign,design,generateDesign,designAction,aiChat,conversations,createLead};

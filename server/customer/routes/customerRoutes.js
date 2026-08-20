@@ -10,6 +10,7 @@ router.use(requireServiceArea);
 const address=z.object({label:z.string().max(60).default('Other'),addressLine:z.string().min(3),city:z.string().min(2).optional(),state:z.string().min(2).optional(),pincode:z.string().regex(/^\d{5,10}$/).optional(),latitude:z.coerce.number().min(-90).max(90).optional(),longitude:z.coerce.number().min(-180).max(180).optional(),isDefault:z.boolean().default(false)});
 router.get('/dashboard',controller.dashboard);
 router.get('/order-options',controller.orderOptions);
+router.get('/service-options',controller.serviceOptions);
 router.get('/profile',controller.profile);
 router.patch('/profile',validate(z.object({name:z.string().min(2).max(120).optional(),mobile:z.string().min(8).max(20).optional(),email:z.string().email().optional(),companyName:z.string().min(2).max(160).optional(),address:z.string().min(3).optional(),city:z.string().min(2).max(100).optional(),state:z.string().min(2).max(100).optional(),pincode:z.string().regex(/^\d{5,10}$/).optional()}).refine(value=>Object.keys(value).length>0,{message:'At least one profile field is required'})),controller.updateProfile);
 router.get('/orders',controller.orders);
