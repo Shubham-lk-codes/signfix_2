@@ -19,6 +19,7 @@ Before accessing customer functionality, call `POST /api/customer/location/valid
 | POST | `/auth/logout` | Revoke the current JWT |
 
 OTP purposes are `verify_registration` and `reset_password`. Development responses include `developmentOtp`; production responses never expose it and should be connected to SMS/email delivery.
+New customer accounts remain in `pending_verification` status and cannot log in until registration OTP verification activates the account.
 
 ## Customer home and profile
 
@@ -26,24 +27,29 @@ OTP purposes are `verify_registration` and `reset_password`. Development respons
 |---|---|---|
 | GET | `/customer/dashboard` | Active order, service, recent quotation, unread count, and recent activity |
 | GET/PATCH | `/customer/profile` | Personal and company profile |
+| GET | `/customer/orders` | Paginated customer-owned orders; supports `page`, `pageSize`, and `status` |
+| GET | `/customer/services` | Paginated customer-owned service tickets; supports `page`, `pageSize`, and `status` |
 | POST | `/customer/addresses` | Save a delivery/service address |
 | DELETE | `/customer/addresses/:id` | Remove an owned address |
 
 ## Orders and price calculator
 
-1. Fetch choices with `GET /catalog/products`, `/catalog/materials`, `/catalog/lighting`, and `/catalog/service-categories`.
+1. Fetch the complete mobile ordering configuration with `GET /customer/order-options`. It includes sign-board types, materials, lighting, units, add-ons, upload limits, and price copy.
 2. Upload a design/photo/PDF with `POST /uploads`, field name `file` (8 MB maximum).
 3. Calculate with `POST /calculator`. Send product, length, width, unit (`ft`, `in`, `cm`, `m`), quantity, material, lighting, and boolean add-ons.
 4. Submit the reviewed payload with `POST /orders`.
 5. List with `GET /orders`; fetch owned detail with `GET /customer/orders/:orderId`.
 
 The calculator returns `label: "Estimated Price"` and the mandatory admin-review notice. Order IDs use `SB-ORD-YYYY-NNNNNN`.
+Order submission recalculates pricing on the server and stores the returned cost breakdown; a client-supplied `estimatedPrice` is never trusted.
 
 ## Design concepts
 
 | Method | Endpoint | Purpose |
 |---|---|---|
 | POST | `/customer/designs` | Create concept request with sign type, business text, style, lighting, background, and optional storefront URL |
+| POST | `/customer/designs/:id/generate` | Queue AI concept generation for an owned design request |
+| GET | `/customer/designs/:id` | Poll generation jobs and retrieve generated concepts/image URLs |
 | POST | `/customer/designs/:id/action` | `regenerate`, `request_modification`, `use`, or `send_to_admin` |
 
 These endpoints store concept workflow data. Connect an image-generation provider later to populate `design_concepts.image_url`; every response states that the result is not production artwork.

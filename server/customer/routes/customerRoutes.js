@@ -9,8 +9,11 @@ router.use(requireServiceArea);
 
 const address=z.object({label:z.string().max(60).default('Other'),addressLine:z.string().min(3),city:z.string().min(2).optional(),state:z.string().min(2).optional(),pincode:z.string().regex(/^\d{5,10}$/).optional(),latitude:z.coerce.number().min(-90).max(90).optional(),longitude:z.coerce.number().min(-180).max(180).optional(),isDefault:z.boolean().default(false)});
 router.get('/dashboard',controller.dashboard);
+router.get('/order-options',controller.orderOptions);
 router.get('/profile',controller.profile);
-router.patch('/profile',validate(z.object({name:z.string().min(2).max(120).optional(),mobile:z.string().min(8).max(20).optional(),companyName:z.string().min(2).max(160).optional(),address:z.record(z.any()).optional()})),controller.updateProfile);
+router.patch('/profile',validate(z.object({name:z.string().min(2).max(120).optional(),mobile:z.string().min(8).max(20).optional(),email:z.string().email().optional(),companyName:z.string().min(2).max(160).optional(),address:z.string().min(3).optional(),city:z.string().min(2).max(100).optional(),state:z.string().min(2).max(100).optional(),pincode:z.string().regex(/^\d{5,10}$/).optional()}).refine(value=>Object.keys(value).length>0,{message:'At least one profile field is required'})),controller.updateProfile);
+router.get('/orders',controller.orders);
+router.get('/services',controller.services);
 router.post('/addresses',validate(address),controller.addAddress);
 router.delete('/addresses/:id',controller.deleteAddress);
 router.get('/orders/:id',controller.order);
@@ -24,6 +27,8 @@ router.patch('/notifications/:id/read',controller.readNotification);
 
 const design=z.object({orderNo:z.string().optional(),signType:z.string().min(1),businessText:z.string().min(1),style:z.string().optional(),lighting:z.string().optional(),background:z.string().optional(),storefrontUrl:z.string().optional(),notes:z.string().max(2000).optional()});
 router.post('/designs',validate(design),controller.createDesign);
+router.get('/designs/:id',controller.design);
+router.post('/designs/:id/generate',validate(z.object({prompt:z.string().min(10).max(4000).optional()})),controller.generateDesign);
 router.post('/designs/:id/action',validate(z.object({action:z.enum(['regenerate','request_modification','use','send_to_admin']),notes:z.string().max(2000).optional()})),controller.designAction);
 router.post('/ai/chat',validate(z.object({message:z.string().min(1).max(4000)})),controller.aiChat);
 router.get('/ai/conversations',controller.conversations);

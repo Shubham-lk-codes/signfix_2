@@ -17,9 +17,30 @@ async function dashboard(userId) {
     (SELECT row_to_json(x) FROM (SELECT order_no AS id,status,estimated_price AS "estimatedPrice",created_at AS "createdAt" FROM orders WHERE customer_id=$1 AND status ${activeOrder} ORDER BY created_at DESC LIMIT 1) x) AS "activeOrder",
     (SELECT row_to_json(x) FROM (SELECT ticket_no AS id,status,category,created_at AS "createdAt" FROM service_tickets WHERE customer_id=$1 AND status ${activeService} ORDER BY created_at DESC LIMIT 1) x) AS "activeService",
     (SELECT row_to_json(x) FROM (SELECT q.quotation_no AS "quotationNo",o.order_no AS "orderNo",q.final_amount AS "finalAmount",q.status,q.valid_until AS "validUntil" FROM quotations q JOIN orders o ON o.id=q.order_id WHERE o.customer_id=$1 ORDER BY q.id DESC LIMIT 1) x) AS "recentQuotation",
+    (SELECT COUNT(*)::int FROM orders WHERE customer_id=$1) AS "orderCount",
+    (SELECT COUNT(*)::int FROM service_tickets WHERE customer_id=$1) AS "serviceCount",
     (SELECT COUNT(*)::int FROM notifications WHERE user_id=$2 AND read_at IS NULL) AS "unreadNotifications"`, [customer.id, userId]);
   const recent = await pool().query(`SELECT * FROM ((SELECT 'order' type,order_no id,status,created_at FROM orders WHERE customer_id=$1) UNION ALL (SELECT 'service',ticket_no,status,created_at FROM service_tickets WHERE customer_id=$1)) a ORDER BY created_at DESC LIMIT 10`, [customer.id]);
-  return { ...rows[0], recentActivity: recent.rows, actions: ['ORDER_NEW_SIGN_BOARD', 'REQUEST_SIGN_BOARD_SERVICE', 'AI_SUPPORT', 'DESIGN_DEMO'] };
+  return {
+    heroActions: [
+      { key:'ORDER_NEW_SIGN_BOARD', title:'Need a New Sign Board?', buttonLabel:'Order Now' },
+      { key:'REQUEST_SIGN_BOARD_SERVICE', title:'Sign Board Problem?', buttonLabel:'Request Service' }
+    ],
+    sections: ['MY_ORDERS','MY_SERVICES','AI_SUPPORT','DESIGN_DEMO','NOTIFICATIONS','RECENT_ACTIVITY'],
+    ...rows[0],
+    recentActivity: recent.rows
+  };
+}
+
+async function orderOptions(){
+  const [products,materials,lighting,accessories,installation]=await Promise.all([
+    pool().query('SELECT id,name,description,image_url AS "imageUrl" FROM products WHERE status=TRUE ORDER BY id'),
+    pool().query('SELECT id,name,description,image_url AS "imageUrl" FROM materials WHERE status=TRUE ORDER BY id'),
+    pool().query('SELECT id,name,description,image_url AS "imageUrl" FROM lighting_options WHERE status=TRUE ORDER BY id'),
+    pool().query('SELECT id,name,description,image_url AS "imageUrl" FROM accessories WHERE status=TRUE ORDER BY id'),
+    pool().query('SELECT id,name,description,image_url AS "imageUrl" FROM installation_options WHERE status=TRUE ORDER BY id')
+  ]);
+  return {signBoardTypes:products.rows,materials:materials.rows,lighting:lighting.rows,units:['ft','in','cm','m'],additionalOptions:['installation','transportation','design','electricalWork','mountingStructure','accessories','customization'],uploads:{fieldName:'file',allowedTypes:['image/jpeg','image/png','image/webp','image/gif','application/pdf'],maxBytes:8388608},accessories:accessories.rows,installationOptions:installation.rows,priceLabel:'Estimated Price',priceNotice:'Final quotation may change after Admin review/measurement.'};
 }
 
 async function profile(userId) {
@@ -32,11 +53,21 @@ async function profile(userId) {
 async function updateProfile(userId, data) {
   const client = await pool().connect();
   try { await client.query('BEGIN');
-    await client.query('UPDATE users SET name=COALESCE($2,name),mobile=COALESCE($3,mobile),updated_at=NOW() WHERE id=$1', [userId, data.name, data.mobile]);
-    await client.query('UPDATE customers SET company_name=COALESCE($2,company_name),address=COALESCE($3::jsonb,address) WHERE user_id=$1', [userId, data.companyName, data.address ? JSON.stringify(data.address) : null]);
+    await client.query('UPDATE users SET name=COALESCE($2,name),mobile=COALESCE($3,mobile),email=COALESCE(LOWER($4),email),updated_at=NOW() WHERE id=$1', [userId, data.name, data.mobile, data.email]);
+    const addressPatch={};
+    if(data.address!==undefined)addressPatch.addressLine=data.address;
+    if(data.city!==undefined)addressPatch.city=data.city;
+    if(data.state!==undefined)addressPatch.state=data.state;
+    if(data.pincode!==undefined)addressPatch.pincode=data.pincode;
+    await client.query('UPDATE customers SET company_name=COALESCE($2,company_name),address=address||$3::jsonb WHERE user_id=$1', [userId, data.companyName, JSON.stringify(addressPatch)]);
+    if(Object.keys(addressPatch).length)await client.query(`UPDATE customer_addresses SET address_line=COALESCE($2,address_line),city=COALESCE($3,city),state=COALESCE($4,state),pincode=COALESCE($5,pincode),updated_at=NOW() WHERE customer_id=(SELECT id FROM customers WHERE user_id=$1) AND is_default=TRUE`,[userId,data.address,data.city,data.state,data.pincode]);
     await client.query('COMMIT'); return profile(userId);
-  } catch (e) { await client.query('ROLLBACK'); throw e; } finally { client.release(); }
+  } catch (e) { await client.query('ROLLBACK'); if(e.code==='23505')throw Object.assign(new Error('Email or mobile number is already registered'),{status:409}); throw e; } finally { client.release(); }
 }
+
+function pagination(query={}){const page=Math.max(1,Number(query.page)||1);const pageSize=Math.min(100,Math.max(1,Number(query.pageSize)||20));return {page,pageSize,offset:(page-1)*pageSize};}
+async function orders(userId,query={}){const customer=await customerForUser(userId);const {page,pageSize,offset}=pagination(query);const params=[customer.id];let filter='';if(query.status){params.push(query.status);filter=` AND status=$${params.length}`;}const total=(await pool().query(`SELECT COUNT(*)::int AS total FROM orders WHERE customer_id=$1${filter}`,params)).rows[0].total;params.push(pageSize,offset);const rows=(await pool().query(`SELECT order_no AS id,specifications,estimated_price AS "estimatedPrice",status,created_at AS "createdAt" FROM orders WHERE customer_id=$1${filter} ORDER BY created_at DESC LIMIT $${params.length-1} OFFSET $${params.length}`,params)).rows.map(row=>({...row,...(row.specifications||{})}));return {data:rows,page,pageSize,total,totalPages:Math.ceil(total/pageSize)};}
+async function services(userId,query={}){const customer=await customerForUser(userId);const {page,pageSize,offset}=pagination(query);const params=[customer.id];let filter='';if(query.status){params.push(query.status);filter=` AND status=$${params.length}`;}const total=(await pool().query(`SELECT COUNT(*)::int AS total FROM service_tickets WHERE customer_id=$1${filter}`,params)).rows[0].total;params.push(pageSize,offset);const rows=(await pool().query(`SELECT ticket_no AS id,category,description,location,photos,priority,status,created_at AS "createdAt" FROM service_tickets WHERE customer_id=$1${filter} ORDER BY created_at DESC LIMIT $${params.length-1} OFFSET $${params.length}`,params)).rows;return {data:rows,page,pageSize,total,totalPages:Math.ceil(total/pageSize)};}
 
 async function addAddress(userId, data) {
   const customer = await customerForUser(userId); const client = await pool().connect();
@@ -63,10 +94,12 @@ async function notifications(userId){ return (await pool().query('SELECT id,chan
 async function readNotification(userId,id){ const {rows}=await pool().query('UPDATE notifications SET read_at=COALESCE(read_at,NOW()) WHERE id=$1 AND user_id=$2 RETURNING id,read_at AS "readAt"',[id,userId]); if(!rows[0]) throw Object.assign(new Error('Notification not found'),{status:404}); return rows[0]; }
 
 async function createDesign(userId,data){const customer=await customerForUser(userId); let orderId=null;if(data.orderNo){const result=await pool().query('SELECT id FROM orders WHERE order_no=$1 AND customer_id=$2',[data.orderNo,customer.id]);orderId=result.rows[0]?.id;if(!orderId)throw Object.assign(new Error('Order not found'),{status:404});}const {rows}=await pool().query(`INSERT INTO design_requests(customer_id,order_id,requirements,status) VALUES($1,$2,$3::jsonb,'requested') RETURNING id,status,requirements,created_at AS "createdAt"`,[customer.id,orderId,JSON.stringify(data)]);return {...rows[0],disclaimer:'Concept/mockup only; not final production artwork.'};}
+async function design(userId,id){const {rows}=await pool().query(`SELECT d.id,d.status,d.requirements,d.created_at AS "createdAt",d.updated_at AS "updatedAt" FROM design_requests d JOIN customers c ON c.id=d.customer_id WHERE c.user_id=$1 AND d.id=$2`,[userId,id]);if(!rows[0])throw Object.assign(new Error('Design request not found'),{status:404});const [concepts,jobs]=await Promise.all([pool().query('SELECT id,image_url AS "imageUrl",prompt,status,admin_notes AS "adminNotes",created_at AS "createdAt" FROM design_concepts WHERE request_id=$1 ORDER BY id DESC',[id]),pool().query(`SELECT id,status,result,error,created_at AS "createdAt",updated_at AS "updatedAt" FROM ai_jobs WHERE kind='generate_design' AND payload->>'requestId'=$1 ORDER BY id DESC LIMIT 10`,[String(id)])]);return {...rows[0],concepts:concepts.rows,generationJobs:jobs.rows,disclaimer:'Concept/mockup only; not final production artwork.'};}
+async function generateDesign(userId,id,customPrompt){const request=await design(userId,id);const r=request.requirements||{};const prompt=customPrompt||`Create a realistic storefront sign-board concept mockup. Sign type: ${r.signType}. Business text: ${r.businessText}. Style: ${r.style||'professional'}. Lighting: ${r.lighting||'appropriate'}. Background: ${r.background||'storefront'}. ${r.storefrontUrl?`Use storefront reference: ${r.storefrontUrl}.`:''} This is a visual concept only, not production artwork.`;const job=await require('../../services/aiQueue').enqueue('generate_design',{requestId:Number(id),prompt});await pool().query("UPDATE design_requests SET status='generation_queued',updated_at=NOW() WHERE id=$1",[id]);return {requestId:Number(id),jobId:job.id,status:'queued',disclaimer:'Concept/mockup only; not final production artwork.'};}
 async function updateDesign(userId,id,action,notes){const statuses={regenerate:'regeneration_requested',request_modification:'modification_requested',use:'selected',send_to_admin:'sent_to_admin'};const status=statuses[action];if(!status)throw Object.assign(new Error('Unsupported design action'),{status:422});const {rows}=await pool().query(`UPDATE design_requests d SET status=$3,requirements=requirements||$4::jsonb,updated_at=NOW() FROM customers c WHERE d.customer_id=c.id AND c.user_id=$1 AND d.id=$2 RETURNING d.id,d.status,d.requirements`,[userId,id,status,JSON.stringify({customerNotes:notes||null})]);if(!rows[0])throw Object.assign(new Error('Design request not found'),{status:404});return {...rows[0],disclaimer:'Concept/mockup only; not final production artwork.'};}
 
 async function saveConversation(userId,message,response,escalate){const {rows}=await pool().query(`INSERT INTO ai_conversations(user_id,question,response,escalation_status) VALUES($1,$2,$3,$4) RETURNING id,created_at AS "createdAt"`,[userId,message,response,escalate?'requested':'none']);if(escalate)await pool().query('INSERT INTO support_escalations(conversation_id,user_id,reason) VALUES($1,$2,$3)',[rows[0].id,userId,message]);return rows[0];}
 async function conversations(userId){return (await pool().query('SELECT id,question,response,escalation_status AS "escalationStatus",created_at AS "createdAt" FROM ai_conversations WHERE user_id=$1 ORDER BY id DESC LIMIT 100',[userId])).rows;}
 async function createLead(userId,data){const customer=await customerForUser(userId);const {rows}=await pool().query(`INSERT INTO ai_leads(customer_id,requirement,product,estimated_budget,contact) VALUES($1,$2,$3,$4,$5) RETURNING id,status,created_at AS "createdAt"`,[customer.id,data.requirement,data.product,data.budget,data.contact]);return rows[0];}
 
-module.exports={dashboard,profile,updateProfile,addAddress,deleteAddress,order,quotations,quotation,quotationAction,serviceTracking,notifications,readNotification,createDesign,updateDesign,saveConversation,conversations,createLead};
+module.exports={dashboard,orderOptions,profile,updateProfile,orders,services,addAddress,deleteAddress,order,quotations,quotation,quotationAction,serviceTracking,notifications,readNotification,createDesign,design,generateDesign,updateDesign,saveConversation,conversations,createLead};

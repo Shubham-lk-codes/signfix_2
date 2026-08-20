@@ -48,7 +48,7 @@ SELECT v.* FROM (VALUES
 WHERE NOT EXISTS (SELECT 1 FROM products p WHERE p.name=v.name);
 INSERT INTO pricing_rules(product_id,rule_type,amount,tax_rate) SELECT * FROM (VALUES (1::bigint,'base_sqft',850::numeric,18::numeric),(2,'base_sqft',650,18),(3,'base_sqft',280,18),(4,'base_sqft',1100,18)) v WHERE NOT EXISTS (SELECT 1 FROM pricing_rules p WHERE p.product_id=v.column1 AND p.rule_type=v.column2);
 INSERT INTO product_categories(name) VALUES ('Illuminated'),('Non-illuminated'),('Letters'),('Outdoor'),('Custom') ON CONFLICT (name) DO NOTHING;
-INSERT INTO materials(name,price_per_sqft) VALUES ('Acrylic',100),('ACP',130),('PVC',80),('Flex',50),('Stainless Steel',250),('Aluminium',180) ON CONFLICT (name) DO NOTHING;
+INSERT INTO materials(name,price_per_sqft) VALUES ('Acrylic',100),('ACP',130),('PVC',80),('Flex',50),('Stainless Steel',250),('Aluminium',180),('Other',0) ON CONFLICT (name) DO NOTHING;
 INSERT INTO lighting_options(name,price_per_sqft) VALUES ('No Lighting',0),('LED',120),('Backlit',160),('Neon',240),('Front Lit',140),('Custom',0) ON CONFLICT (name) DO NOTHING;
 INSERT INTO service_categories(name) VALUES ('LED Problem'),('Electrical Issue'),('Physical Damage'),('Sign Board Repair'),('Replacement'),('Installation'),('Reinstallation'),('Cleaning'),('Maintenance'),('Inspection'),('Emergency'),('Other') ON CONFLICT (name) DO NOTHING;
 INSERT INTO notification_templates(name,event_key,category,title,body,channels,status) VALUES
