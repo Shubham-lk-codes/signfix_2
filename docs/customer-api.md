@@ -60,10 +60,10 @@ These endpoints store concept workflow data. Connect an image-generation provide
 |---|---|---|
 | GET | `/customer/quotations` | List owned quotations |
 | GET | `/customer/quotations/:quotationNo` | Quotation detail |
-| POST | `/customer/quotations/:quotationNo/action` | `approve` or `request_changes` with optional notes |
+| POST | `/customer/quotations/:quotationNo/action` | `approve` or `request_changes` with optional notes; only valid for a sent, unexpired quotation |
 | GET | `/customer/quotations/:quotationNo/pdf` | Download PDF |
 
-Payment is intentionally not exposed until a payment gateway and server-side webhook verification are configured.
+Draft and cancelled quotations are never exposed to customers. Detail responses include line items, quantity, all price components, `availableActions`, and payment capability metadata. Payment options (`advance` and `full`) are advertised only for approved quotations when the customer payment flag, `PAYMENT_GATEWAY_ENABLED`, and `PAYMENT_GATEWAY_PROVIDER` are all configured. Actual payment initiation remains unavailable until a gateway adapter and verified server-side webhook are implemented.
 
 ## Service and tracking
 
