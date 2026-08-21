@@ -24,4 +24,9 @@ describe('technician API validation',()=>{
     for(const filter of ['today','upcoming','pending','completed'])expect(schemas.jobQuery.safeParse({filter}).success).toBe(true);
     expect(schemas.jobQuery.safeParse({filter:'cancelled'}).success).toBe(false);
   });
+  it('accepts categorized photos and notes-only evidence',()=>{
+    expect(schemas.evidence.safeParse({type:'before',category:'problem'}).success).toBe(true);
+    expect(schemas.evidence.safeParse({serviceNotes:'Loose wiring found'}).success).toBe(true);
+    expect(schemas.evidence.safeParse({type:'before',category:'unapproved'}).success).toBe(false);
+  });
 });

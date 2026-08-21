@@ -65,11 +65,13 @@ async function getJob(id,user) {
   if(!rows[0]) return null;
   const [history,photos,materials,services]=await Promise.all([
     pool().query(`SELECT status,notes,created_at AS "createdAt" FROM job_status_history WHERE job_id=$1 ORDER BY created_at`,[id]),
-    pool().query(`SELECT id,photo_type AS type,storage_key AS url,mime_type AS "mimeType",created_at AS "createdAt" FROM job_photos WHERE job_id=$1 ORDER BY created_at`,[id]),
+    pool().query(`SELECT id,photo_type AS type,photo_category AS category,storage_key AS url,mime_type AS "mimeType",created_at AS "createdAt" FROM job_photos WHERE job_id=$1 ORDER BY created_at`,[id]),
     pool().query(`SELECT id,name,quantity,unit,notes,created_at AS "createdAt" FROM job_materials WHERE job_id=$1 ORDER BY id`,[id]),
     rows[0].assetId ? pool().query(`SELECT st.ticket_no AS "ticketNo",st.category,st.description,tj.status,tj.closed_at AS "closedAt" FROM service_tickets st LEFT JOIN technician_jobs tj ON tj.ticket_id=st.id WHERE st.asset_id=$1 AND st.id<>$2 ORDER BY st.created_at DESC LIMIT 20`,[rows[0].assetId,rows[0].ticket_id]) : {rows:[]}
   ]);
-  return {...rows[0],statusHistory:history.rows,evidencePhotos:photos.rows,materials:materials.rows,previousServiceHistory:services.rows};
+  const job=rows[0],location=job.location||{};
+  const latitude=location.latitude??location.lat??null,longitude=location.longitude??location.lng??null;
+  return {...job,phone:job.customerPhone,address:location.address??location.addressLine??null,gpsLocation:latitude!==null&&longitude!==null?{latitude,longitude}:null,statusHistory:history.rows,evidencePhotos:photos.rows,materials:materials.rows,previousServiceHistory:services.rows};
 }
 
 async function lockOwnedJob(client,id,user) {

@@ -110,7 +110,7 @@ Advanced exact-status filters:
 
 ### `GET /api/technician/jobs/:jobId`
 
-Returns the full job: customer name/phone, address and GPS coordinates, sign-board photos, problem description, service type, admin instructions, priority, schedule, evidence, materials, status history, asset details, and previous service history when the ticket is linked to an asset. A technician cannot access another technician's job.
+Returns the full job: customer name/phone, address and GPS coordinates, sign-board photos, problem description, service type, admin instructions, priority, schedule, evidence, materials, status history, asset details, and previous service history when the ticket is linked to an asset. Mobile-friendly aliases include `phone`, `address`, and `gpsLocation`. Previous history is returned only through an assigned job linked to the same asset. A technician cannot access another technician's job.
 
 For navigation, read `data.location.latitude` and `data.location.longitude` and open the device maps application. For calls, use `data.customerPhone`. The backend intentionally returns data and does not initiate device actions.
 
@@ -152,10 +152,16 @@ At least one `before` photo and one `after` photo must exist before `completed` 
 Send multipart form data:
 
 - `photos`: one to ten image files, each up to 8 MB
-- `type`: `before`, `damage`, `work`, or `after`
+- `type`: `before`, `work`, or `after` (`damage` remains accepted for older clients and is stored as a before photo)
+- `category`: optional classification:
+  - Before: `existing_condition`, `damage`, or `problem`
+  - Work: `work_in_progress`
+  - After: `completed_work`
 - `serviceNotes`: optional
 - `workDescription`: optional
 - `additionalRemarks`: optional
+
+Photos require `type`. Notes can be submitted without photos or `type` using the same endpoint. Parts and materials use the separate materials endpoint below.
 
 Allowed formats: JPEG, PNG, WebP, HEIC, and HEIF. Call the endpoint more than once for different photo types. Returned photo URLs are relative to the API host.
 
