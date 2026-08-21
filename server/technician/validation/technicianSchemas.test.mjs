@@ -20,4 +20,8 @@ describe('technician API validation',()=>{
     expect(schemas.jobQuery.safeParse({limit:'100',from:'2026-08-17'}).success).toBe(true);
     expect(schemas.jobQuery.safeParse({limit:'101',from:'17-08-2026'}).success).toBe(false);
   });
+  it('accepts only supported mobile job-list filters',()=>{
+    for(const filter of ['today','upcoming','pending','completed'])expect(schemas.jobQuery.safeParse({filter}).success).toBe(true);
+    expect(schemas.jobQuery.safeParse({filter:'cancelled'}).success).toBe(false);
+  });
 });

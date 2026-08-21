@@ -36,7 +36,22 @@ Login response:
 
 ### `GET /api/technician/dashboard`
 
-Returns counts for `today`, `pending`, `inProgress`, `completed`, and `emergency` jobs.
+Returns counts for `today`, `assigned`, `pending`, `inProgress`, `completed`, and `emergency` jobs. `pending` includes both newly assigned and accepted jobs, while `assigned` is the count of jobs that have not yet been accepted.
+
+Example response:
+
+```json
+{
+  "data": {
+    "today": 4,
+    "assigned": 10,
+    "pending": 10,
+    "inProgress": 3,
+    "completed": 7,
+    "emergency": 1
+  }
+}
+```
 
 ### `GET /api/technician/profile`
 
@@ -67,6 +82,7 @@ Query parameters:
 
 | Parameter | Example | Meaning |
 |---|---|---|
+| `filter` | `upcoming` | Mobile list filter: `today`, `upcoming`, `pending`, or `completed` |
 | `status` | `work_in_progress` | Exact workflow status |
 | `priority` | `emergency` | Exact priority |
 | `from` | `2026-08-01` | Scheduled on/after date |
@@ -76,11 +92,18 @@ Query parameters:
 | `page` | `1` | Page, default 1 |
 | `limit` | `20` | Page size, maximum 100 |
 
-Response includes `items` and `pagination`. Each item includes customer contact, service type, location, priority, status, schedule, and progress percentage.
+Response includes `items` and `pagination`. Each item includes `jobId`, customer contact, `jobType`, location, priority, status, scheduled date/time, and progress percentage. The existing `id`, `ticketNo`, `category`, and `serviceType` fields remain available for backward compatibility.
 
-Common filters:
+Mobile filters:
 
-- Pending: request `status=assigned`, then `status=accepted` if both groups are needed.
+- Today: `filter=today`.
+- Upcoming: `filter=upcoming` (scheduled from tomorrow onward and not completed/closed).
+- Pending: `filter=pending` (assigned or accepted).
+- Completed: `filter=completed` (completed or closed).
+- Priority: add `priority=emergency`, or any configured priority, to one of the filters above.
+
+Advanced exact-status filters:
+
 - In progress: `on_the_way`, `reached_location`, `inspection_started`, or `work_in_progress`.
 - Completed work awaiting verification: `completed`.
 - Closed jobs: `closed`.

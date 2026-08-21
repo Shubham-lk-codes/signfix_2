@@ -30,9 +30,13 @@ function filters(query, user) {
   const values = [], where = [];
   if (user.role === 'technician') { values.push(user.id); where.push(`t.user_id=$${values.length}`); }
   if (query.status) { values.push(query.status); where.push(`j.status=$${values.length}`); }
-  if (query.priority) { values.push(query.priority); where.push(`s.priority=$${values.length}`); }
+  if (query.priority) { values.push(query.priority); where.push(`LOWER(s.priority)=LOWER($${values.length})`); }
   if (query.from) { values.push(query.from); where.push(`j.scheduled_at >= $${values.length}::date`); }
   if (query.to) { values.push(query.to); where.push(`j.scheduled_at < ($${values.length}::date + INTERVAL '1 day')`); }
+  if (query.filter === 'today') where.push(`j.scheduled_at >= CURRENT_DATE AND j.scheduled_at < CURRENT_DATE + INTERVAL '1 day'`);
+  if (query.filter === 'upcoming') where.push(`j.scheduled_at >= CURRENT_DATE + INTERVAL '1 day' AND j.status NOT IN ('completed','closed')`);
+  if (query.filter === 'pending') where.push(`j.status IN ('assigned','accepted')`);
+  if (query.filter === 'completed') where.push(`j.status IN ('completed','closed')`);
   if (query.today === 'true') where.push(`j.scheduled_at >= CURRENT_DATE AND j.scheduled_at < CURRENT_DATE + INTERVAL '1 day'`);
   if (query.emergency === 'true') where.push(`LOWER(s.priority)='emergency'`);
   return { values, sql: where.length ? `WHERE ${where.join(' AND ')}` : '' };
@@ -41,8 +45,8 @@ function filters(query, user) {
 async function listJobs(user, query) {
   const f = filters(query,user), limit=Math.min(Number(query.limit)||20,100), offset=(Math.max(Number(query.page)||1,1)-1)*limit;
   f.values.push(limit,offset);
-  const { rows } = await pool().query(`SELECT j.id,s.ticket_no AS "ticketNo",cu.name AS customer,cu.mobile AS "customerPhone",
-    s.category,s.service_type AS "serviceType",s.priority,j.status,j.scheduled_at AS "scheduledAt",s.location,
+  const { rows } = await pool().query(`SELECT j.id,j.id AS "jobId",s.ticket_no AS "ticketNo",cu.name AS customer,cu.mobile AS "customerPhone",
+    COALESCE(s.service_type,s.category) AS "jobType",s.category,s.service_type AS "serviceType",s.priority,j.status,j.scheduled_at AS "scheduledAt",s.location,
     CASE WHEN j.status IN ('completed','closed') THEN 100 WHEN j.status='work_in_progress' THEN 80 WHEN j.status='inspection_started' THEN 60 WHEN j.status='reached_location' THEN 45 WHEN j.status='on_the_way' THEN 30 WHEN j.status='accepted' THEN 15 ELSE 0 END AS progress,
     COUNT(*) OVER()::int AS "totalCount"
     FROM technician_jobs j JOIN service_tickets s ON s.id=j.ticket_id JOIN customers c ON c.id=s.customer_id
@@ -77,6 +81,7 @@ async function lockOwnedJob(client,id,user) {
 async function dashboardStats(user) {
   const {rows}=await pool().query(`SELECT
     COUNT(*) FILTER(WHERE j.scheduled_at>=CURRENT_DATE AND j.scheduled_at<CURRENT_DATE+INTERVAL '1 day')::int today,
+    COUNT(*) FILTER(WHERE j.status='assigned')::int assigned,
     COUNT(*) FILTER(WHERE j.status IN ('assigned','accepted'))::int pending,
     COUNT(*) FILTER(WHERE j.status IN ('on_the_way','reached_location','inspection_started','work_in_progress'))::int AS "inProgress",
     COUNT(*) FILTER(WHERE j.status IN ('completed','closed'))::int completed,
