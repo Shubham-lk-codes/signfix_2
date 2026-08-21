@@ -18,6 +18,7 @@ router.get('/profile',controller.profile);
 router.patch('/profile',validate(schemas.profile),controller.updateProfile);
 router.get('/jobs',validateJobQuery,controller.listJobs);
 router.get('/jobs/:jobId',validateId,controller.getJob);
+router.get('/jobs/:jobId/navigation',validateId,controller.navigation);
 router.patch('/jobs/:jobId/status',validateId,validate(schemas.statusUpdate),controller.updateStatus);
 router.post('/jobs/:jobId/evidence',validateId,upload.array('photos',10),validateEvidence,controller.addEvidence);
 router.post('/jobs/:jobId/materials',validateId,validate(schemas.material),controller.addMaterial);

@@ -114,6 +114,10 @@ Returns the full job: customer name/phone, address and GPS coordinates, sign-boa
 
 For navigation, read `data.location.latitude` and `data.location.longitude` and open the device maps application. For calls, use `data.customerPhone`. The backend intentionally returns data and does not initiate device actions.
 
+### `GET /api/technician/jobs/:jobId/navigation`
+
+Returns the assigned job's destination coordinates, address, and ready-to-open Google Maps, Apple Maps, and Android `geo:` links. Route rendering, GPS permission prompts, and opening the maps application remain the mobile client's responsibility.
+
 ## Status workflow
 
 ### `PATCH /api/technician/jobs/:jobId/status`
@@ -219,7 +223,7 @@ Signature example:
 { "signatureUrl": "/uploads/signature.png", "accepted": true, "customerName": "Asha Rao" }
 ```
 
-The customer must explicitly accept, and an OTP or signature is mandatory. Successful confirmation changes both job and service ticket to `closed` and stores the confirmation audit data.
+The customer must explicitly accept, and an OTP or signature is mandatory. Successful confirmation keeps both job and service ticket at `completed`, stores the confirmation audit data, and rejects duplicate confirmation attempts with `409`.
 
 ## Database setup
 
