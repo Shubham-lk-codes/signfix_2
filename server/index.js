@@ -5,8 +5,8 @@ const migrate = require('./migrate');
 async function start() {
   await migrate();
   const server=app.listen(port, () => console.log(`SignFix API listening on port ${port}`));
-  const {corsOrigins}=require('./config');
-  await require('./services/realtimeService').initialize(server,corsOrigins);
+  const {isCorsOriginAllowed}=require('./config');
+  await require('./services/realtimeService').initialize(server,isCorsOriginAllowed);
   require('./services/aiQueue').startWorker();
   return server;
 }
