@@ -29,7 +29,26 @@ const notifications = require('../admin/controllers/notificationController');
 const validate = require('../middleware/validate');
 const { authenticate, authorize, permit } = require('../middleware/auth');
 const allowedUploads = new Map([['image/jpeg','.jpg'],['image/png','.png'],['image/webp','.webp'],['image/gif','.gif'],['application/pdf','.pdf']]);
-const upload = multer({ storage:multer.diskStorage({destination:uploadDir,filename:(_,file,cb)=>cb(null,`${crypto.randomUUID()}${allowedUploads.get(file.mimetype)||''}`)}), limits: { fileSize: 8 * 1024 * 1024, files:1 }, fileFilter: (_, file, cb) => cb(null, allowedUploads.has(file.mimetype)) });
+const uploadTypesByExtension = new Map([['.jpg','image/jpeg'],['.jpeg','image/jpeg'],['.png','image/png'],['.webp','image/webp'],['.gif','image/gif'],['.pdf','application/pdf']]);
+function normalizeUploadType(file) {
+  if (allowedUploads.has(file.mimetype)) return file.mimetype;
+  // Some browser clients label byte-based multipart files as octet-stream.
+  if (file.mimetype === 'application/octet-stream') return uploadTypesByExtension.get(path.extname(file.originalname).toLowerCase());
+  return undefined;
+}
+const upload = multer({
+  storage: multer.diskStorage({
+    destination: uploadDir,
+    filename: (_, file, cb) => cb(null, `${crypto.randomUUID()}${allowedUploads.get(file.mimetype)}`),
+  }),
+  limits: { fileSize: 8 * 1024 * 1024, files: 1 },
+  fileFilter: (_, file, cb) => {
+    const mimetype = normalizeUploadType(file);
+    if (!mimetype) return cb(Object.assign(new Error('Only JPEG, PNG, WebP, GIF, or PDF files are allowed'), { status: 415 }));
+    file.mimetype = mimetype;
+    cb(null, true);
+  },
+});
 const secureImageUpload=multer({storage:multer.memoryStorage(),limits:{fileSize:5*1024*1024,files:1},fileFilter:(_,file,cb)=>cb(null,['image/jpeg','image/png','image/webp'].includes(file.mimetype))});
 function validImageSignature(file){const b=file.buffer;return file.mimetype==='image/jpeg'&&b[0]===0xff&&b[1]===0xd8&&b[2]===0xff||file.mimetype==='image/png'&&b.subarray(0,8).equals(Buffer.from([137,80,78,71,13,10,26,10]))||file.mimetype==='image/webp'&&b.subarray(0,4).toString()==='RIFF'&&b.subarray(8,12).toString()==='WEBP';}
 
