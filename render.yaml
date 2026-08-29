@@ -10,7 +10,7 @@ services:
       - key: NODE_ENV
         value: production
       - key: CORS_ORIGIN
-        value: http://localhost:5173,https://signfix-2.vercel.app
+        value: '*'
       - key: DATABASE_URL
         sync: false
       - key: JWT_SECRET

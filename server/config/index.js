@@ -3,18 +3,20 @@ require('dotenv').config({ path: path.resolve(__dirname, '../../.env') });
 if(process.env.NODE_ENV==='production'&&(!process.env.JWT_SECRET||process.env.JWT_SECRET.length<32))throw new Error('JWT_SECRET must contain at least 32 characters in production');
 
 const corsOrigins = (process.env.CORS_ORIGIN || 'http://localhost:5173').split(',').map((value) => value.trim().replace(/\/$/, '')).filter(Boolean);
-const isProduction = process.env.NODE_ENV === 'production';
 function isCorsOriginAllowed(origin) {
   if (!origin) return true;
   const normalized = origin.replace(/\/$/, '');
+  // This is a bearer-token API used by native apps and independently hosted
+  // Flutter web clients. CORS is not an authentication boundary; deployments
+  // may opt into public browser access with CORS_ORIGIN=*.
+  if (corsOrigins.includes('*')) return true;
   if (corsOrigins.includes(normalized)) return true;
-  if (!isProduction) {
-    try {
-      const url = new URL(normalized);
-      return ['http:', 'https:'].includes(url.protocol) && ['localhost', '127.0.0.1', '::1'].includes(url.hostname);
-    } catch (_) {
-      return false;
-    }
+  try {
+    const url = new URL(normalized);
+    // Local Flutter web clients must be able to use the deployed API too.
+    if (['http:', 'https:'].includes(url.protocol) && ['localhost', '127.0.0.1', '::1'].includes(url.hostname)) return true;
+  } catch (_) {
+    return false;
   }
   return false;
 }
