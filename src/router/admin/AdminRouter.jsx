@@ -21,7 +21,7 @@ export default function AdminRouter({ path, navigate }) {
   const resource = resources[path.slice(1)] || ({'service-areas':'service-areas','whatsapp-notifications':'whatsapp-notifications'})[path.slice(1)];
   const page = path === '/' ? <DashboardPage navigate={navigate} />
     : path === '/customers' ? <CustomersPage />
-    : path === '/orders' ? <OrdersPage />
+    : path === '/orders' ? <OrdersPage navigate={navigate} />
     : path === '/quotations' ? <QuotationsPage />
     : path === '/services' ? <ServicesPage />
     : path === '/technicians' ? <TechniciansPage />
