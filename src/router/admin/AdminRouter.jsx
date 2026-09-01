@@ -1,19 +1,21 @@
-import React from 'react';
+import React, { Suspense, lazy } from 'react';
 import AdminLayout from '../../components/layout/AdminLayout';
 import DashboardPage from '../../pages/admin/DashboardPage';
-import ReportsPage from '../../pages/admin/ReportsPage';
-import ResourcePage from '../../pages/admin/ResourcePage';
-import NotificationsPage from '../../pages/admin/NotificationsPage';
-import PricingPage from '../../pages/admin/PricingPage';
-import ServiceAreasPage from '../../pages/admin/ServiceAreasPage';
-import CustomersPage from '../../pages/admin/CustomersPage';
-import OrdersPage from '../../pages/admin/OrdersPage';
-import QuotationsPage from '../../pages/admin/QuotationsPage';
-import ServicesPage from '../../pages/admin/ServicesPage';
-import TechniciansPage from '../../pages/admin/TechniciansPage';
-import AssetsPage from '../../pages/admin/AssetsPage';
-import AIManagementPage from '../../pages/admin/AIManagementPage';
-import SettingsPage from '../../pages/admin/SettingsPage';
+import LoadingState from '../../components/ui/LoadingState';
+
+const ReportsPage = lazy(() => import('../../pages/admin/ReportsPage'));
+const ResourcePage = lazy(() => import('../../pages/admin/ResourcePage'));
+const NotificationsPage = lazy(() => import('../../pages/admin/NotificationsPage'));
+const PricingPage = lazy(() => import('../../pages/admin/PricingPage'));
+const ServiceAreasPage = lazy(() => import('../../pages/admin/ServiceAreasPage'));
+const CustomersPage = lazy(() => import('../../pages/admin/CustomersPage'));
+const OrdersPage = lazy(() => import('../../pages/admin/OrdersPage'));
+const QuotationsPage = lazy(() => import('../../pages/admin/QuotationsPage'));
+const ServicesPage = lazy(() => import('../../pages/admin/ServicesPage'));
+const TechniciansPage = lazy(() => import('../../pages/admin/TechniciansPage'));
+const AssetsPage = lazy(() => import('../../pages/admin/AssetsPage'));
+const AIManagementPage = lazy(() => import('../../pages/admin/AIManagementPage'));
+const SettingsPage = lazy(() => import('../../pages/admin/SettingsPage'));
 
 const resources = { customers:'customers', products:'products', categories:'categories', materials:'materials', lighting:'lighting', accessories:'accessories', 'installation-options':'installation-options', orders:'orders', quotations:'quotations', services:'services', technicians:'technicians', assets:'assets', 'ai-leads':'ai-leads', 'ai-knowledge':'ai-knowledge', 'ai-conversations':'ai-conversations', 'design-concepts':'design-concepts', 'notification-templates':'notification-templates', settings:'settings', roles:'roles', permissions:'permissions', 'audit-logs':'audit-logs' };
 
@@ -34,5 +36,5 @@ export default function AdminRouter({ path, navigate }) {
       : path === '/service-areas' ? <ServiceAreasPage />
       : resource ? <ResourcePage key={resource} resource={resource} />
         : <section className="content"><h1>Page not found</h1><button className="primary" onClick={() => navigate('/')}>Back to dashboard</button></section>;
-  return <AdminLayout path={path} navigate={navigate}>{page}</AdminLayout>;
+  return <AdminLayout path={path} navigate={navigate}><Suspense fallback={<LoadingState />}>{page}</Suspense></AdminLayout>;
 }

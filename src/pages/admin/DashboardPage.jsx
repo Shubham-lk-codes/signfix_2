@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { ArrowUpRight, ClipboardList, MoreHorizontal, Package, Plus, Users, Wrench, Zap } from 'lucide-react';
 import { get } from '../../api/client';
-import LoadingState from '../../components/ui/LoadingState';
 import StatusBadge from '../../components/ui/StatusBadge';
 
 const sampleOrders = [
@@ -17,17 +16,22 @@ const sampleServices = [
 ];
 
 export default function DashboardPage({ navigate }) {
-  const [state, setState] = useState(null);
+  const [state, setState] = useState({ dashboard: null, orders: null, services: null, leads: null });
   const [error, setError] = useState('');
   useEffect(() => {
-    Promise.all([get('/api/admin/dashboard'), get('/api/orders'), get('/api/services'), get('/api/catalog/ai-leads')])
-      .then(([dashboard, orders, services, leads]) => setState({ dashboard, orders: orders.data, services: services.data, leads: leads.data }))
-      .catch((requestError) => setError(requestError.message));
+    let active = true;
+    const load = (key, path, select = (value) => value) => get(path)
+      .then((value) => active && setState((current) => ({ ...current, [key]: select(value) })))
+      .catch((requestError) => active && setError((current) => current || requestError.message));
+    load('dashboard', '/api/admin/dashboard');
+    load('orders', '/api/orders?limit=4', (value) => value.data);
+    load('services', '/api/services?limit=3', (value) => value.data);
+    load('leads', '/api/catalog/ai-leads?pageSize=5', (value) => value.data);
+    return () => { active = false; };
   }, []);
-  if (!state && !error) return <LoadingState />;
   const data = state?.dashboard || {};
-  const orders = state?.orders?.length ? state.orders.slice(0, 4) : sampleOrders;
-  const services = state?.services?.length ? state.services.slice(0, 3) : sampleServices;
+  const orders = state.orders?.length ? state.orders : sampleOrders;
+  const services = state.services?.length ? state.services : sampleServices;
   const metrics = [
     ['Total Customers', data.customers, '+12.5%', Users, 'blue'], ['New Orders', data.newOrders, '+8.2%', Package, 'purple'],
     ['Pending Quotes', data.pendingQuotations, 'Needs action', ClipboardList, 'orange'], ['Active Services', data.activeServices, '+5 this week', Wrench, 'red'],
