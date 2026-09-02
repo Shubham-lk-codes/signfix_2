@@ -2,9 +2,9 @@
 
 Base URL: `/api`. JSON endpoints require `Authorization: Bearer <token>` except registration and password recovery. Upload endpoints use `multipart/form-data`.
 
-## Required service-area validation
+## Optional service-area validation
 
-Before accessing customer functionality, call `POST /api/customer/location/validate` with `latitude`, `longitude`, and optional `accuracyMeters`. Send the returned token in `X-Service-Area-Token` on customer, order, and service APIs. The backend verifies that the token belongs to the same customer and has not expired. For permission/GPS failures, send `locationError` as `permission_denied`, `gps_unavailable`, `position_unavailable`, or `timeout` to receive a clear error response.
+`POST /api/customer/location/validate` remains available for checking whether a location is serviceable, but `X-Service-Area-Token` is temporarily not required by customer, order, or service APIs. JWT authentication is still required. For permission/GPS failures, send `locationError` as `permission_denied`, `gps_unavailable`, `position_unavailable`, or `timeout` to receive a clear error response.
 
 ## Authentication
 

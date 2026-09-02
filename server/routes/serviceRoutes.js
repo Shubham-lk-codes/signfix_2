@@ -3,10 +3,7 @@ const { z } = require('zod');
 const controller = require('../controllers/serviceController');
 const validate = require('../middleware/validate');
 const { authenticate, authorize } = require('../middleware/auth');
-const { requireServiceArea } = require('../services/serviceAreaService');
-const customerArea=(req,res,next)=>req.user.role==='customer'?requireServiceArea(req,res,next):next();
 router.use(authenticate);
-router.use(customerArea);
 router.get('/', controller.list);
 router.post('/', authorize('customer', 'super_admin', 'admin'),
 validate(z.object({
