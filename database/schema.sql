@@ -214,3 +214,14 @@ CREATE TABLE IF NOT EXISTS whatsapp_notification_logs (
 );
 CREATE INDEX IF NOT EXISTS idx_allowed_cities_active ON allowed_cities(active);
 CREATE INDEX IF NOT EXISTS idx_whatsapp_logs_created ON whatsapp_notification_logs(created_at DESC);
+-- Cover the most frequent customer, technician, and detail-page lookups.
+CREATE INDEX IF NOT EXISTS idx_orders_customer_created ON orders(customer_id,created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_tickets_customer_created ON service_tickets(customer_id,created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_quotations_order_id_desc ON quotations(order_id,id DESC);
+CREATE INDEX IF NOT EXISTS idx_jobs_ticket ON technician_jobs(ticket_id);
+CREATE INDEX IF NOT EXISTS idx_assets_customer_id_desc ON sign_board_assets(customer_id,id DESC);
+CREATE INDEX IF NOT EXISTS idx_asset_history_asset_id_desc ON asset_service_history(asset_id,id DESC);
+CREATE INDEX IF NOT EXISTS idx_payments_quotation_id_desc ON payments(quotation_id,id DESC);
+CREATE INDEX IF NOT EXISTS idx_ai_conversations_user_id_desc ON ai_conversations(user_id,id DESC);
+CREATE INDEX IF NOT EXISTS idx_job_history_job_created ON job_status_history(job_id,created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_job_photos_job_created ON job_photos(job_id,created_at);

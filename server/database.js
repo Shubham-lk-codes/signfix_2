@@ -3,7 +3,17 @@ const bcrypt = require('bcryptjs');
 let pool;
 const notifyCustomer=(...args)=>require('./services/notificationService').sendEvent(...args);
 function isConfigured() { return Boolean(process.env.DATABASE_URL); }
-function getPool() { if (!isConfigured()) throw Object.assign(new Error('DATABASE_URL is required'), { status: 503 }); if (!pool) pool = new Pool({ connectionString: process.env.DATABASE_URL, max: Number(process.env.DB_POOL_SIZE || 10) }); return pool; }
+function getPool() {
+  if (!isConfigured()) throw Object.assign(new Error('DATABASE_URL is required'), { status: 503 });
+  if (!pool) pool = new Pool({
+    connectionString: process.env.DATABASE_URL,
+    max: Number(process.env.DB_POOL_SIZE || 10),
+    idleTimeoutMillis: Number(process.env.DB_IDLE_TIMEOUT_MS || 30000),
+    connectionTimeoutMillis: Number(process.env.DB_CONNECT_TIMEOUT_MS || 10000),
+    keepAlive: true,
+  });
+  return pool;
+}
 async function health() { await getPool().query('SELECT 1'); return { mode: 'postgres', connected: true }; }
 async function findUserByEmail(email) { const { rows } = await getPool().query(`SELECT u.id,u.name,u.email,u.status,u.verified_at AS "verifiedAt",u.password_hash AS "passwordHash",r.name AS role FROM users u JOIN roles r ON r.id=u.role_id WHERE LOWER(u.email)=$1 LIMIT 1`, [email]); return rows[0]; }
 
@@ -32,7 +42,7 @@ const catalog = {
   permissions: { table: 'permissions', select: 'id,name,description', search: ['name','description'], sort: ['id','name'] },
 };
 function resource(name) { const value = catalog[name]; if (!value) throw Object.assign(new Error('Unsupported resource'), { status: 404 }); return value; }
-async function listCatalog(name, query = {}) { const item = resource(name); const page = Math.max(1, Number(query.page) || 1), pageSize = Math.min(100, Math.max(5, Number(query.pageSize) || 20)); const params = [], clauses = []; const search = String(query.search || '').trim(), status = String(query.status || '').trim(); if (search && item.search?.length) { params.push(`%${search}%`); clauses.push(`(${item.search.map(column => `LOWER(COALESCE(${column}::text,'')) LIKE LOWER($1)`).join(' OR ')})`); } if (status && item.sort?.includes('status')) { params.push(status); clauses.push(`status::text=$${params.length}`); } const where = clauses.length ? ` WHERE ${clauses.join(' AND ')}` : ''; const requestedSort = String(query.sort || 'id'), sort = item.sort?.includes(requestedSort) ? requestedSort : 'id'; const direction = String(query.direction).toLowerCase() === 'asc' ? 'ASC' : 'DESC'; const count = await getPool().query(`SELECT COUNT(*)::int total FROM ${item.table}${where}`, params); params.push(pageSize, (page - 1) * pageSize); const { rows } = await getPool().query(`SELECT ${item.select} FROM ${item.table}${where} ORDER BY ${sort} ${direction} LIMIT $${params.length - 1} OFFSET $${params.length}`, params); return { data: rows, page, pageSize, total: count.rows[0].total, totalPages: Math.max(1, Math.ceil(count.rows[0].total / pageSize)) }; }
+async function listCatalog(name, query = {}) { const item = resource(name); const page = Math.max(1, Number(query.page) || 1), pageSize = Math.min(100, Math.max(5, Number(query.pageSize) || 20)); const params = [], clauses = []; const search = String(query.search || '').trim(), status = String(query.status || '').trim(); if (search && item.search?.length) { params.push(`%${search}%`); clauses.push(`(${item.search.map(column => `LOWER(COALESCE(${column}::text,'')) LIKE LOWER($1)`).join(' OR ')})`); } if (status && item.sort?.includes('status')) { params.push(status); clauses.push(`status::text=$${params.length}`); } const where = clauses.length ? ` WHERE ${clauses.join(' AND ')}` : ''; const requestedSort = String(query.sort || 'id'), sort = item.sort?.includes(requestedSort) ? requestedSort : 'id'; const direction = String(query.direction).toLowerCase() === 'asc' ? 'ASC' : 'DESC'; const dataParams = [...params, pageSize, (page - 1) * pageSize]; const [count, result] = await Promise.all([getPool().query(`SELECT COUNT(*)::int total FROM ${item.table}${where}`, params), getPool().query(`SELECT ${item.select} FROM ${item.table}${where} ORDER BY ${sort} ${direction} LIMIT $${dataParams.length - 1} OFFSET $${dataParams.length}`, dataParams)]); const total=count.rows[0].total; return { data: result.rows, page, pageSize, total, totalPages: Math.max(1, Math.ceil(total / pageSize)) }; }
 const writableCatalog = {
   products: { table: 'products', fields: { name: 'name', category: 'category', description: 'description', imageUrl:'image_url', pricingMethod: 'pricing_method', price:'base_price', status: 'status' } },
   categories: { table: 'product_categories', fields: { name: 'name', status: 'status' } },
