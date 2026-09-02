@@ -11,6 +11,8 @@ router.post('/register',validate(z.object({name:z.string().min(2).max(120),mobil
 router.post('/forgot-password',authLimiter,validate(z.object({identifier:z.string().min(5)})),controller.forgotPassword);
 router.post('/verify-otp',authLimiter,validate(z.object({identifier:z.string().min(5),otp:z.string().regex(/^\d{6}$/),purpose:z.enum(['verify_registration','reset_password'])})),controller.verifyOtp);
 router.post('/reset-password',authLimiter,validate(z.object({resetToken:z.string().min(10),password:strongPassword})),controller.resetPassword);
+router.post('/resend-registration-otp',authLimiter,validate(z.object({identifier:z.string().min(5)})),controller.resendRegistrationOtp);
 router.get('/me', authenticate, controller.me);
+router.post('/change-password',authenticate,validate(z.object({currentPassword:z.string().min(6),newPassword:strongPassword})),controller.changePassword);
 router.post('/logout',authenticate,controller.logout);
 module.exports = router;

@@ -15,7 +15,7 @@ app.use(cors({
     callback(Object.assign(new Error('Origin is not allowed by CORS'), { status: 403 }));
   },
 }));
-app.use(express.json({ limit: '2mb' }));
+app.use(express.json({limit:'2mb',verify:(req,_res,buffer)=>{req.rawBody=Buffer.from(buffer);}}));
 app.use('/api',rateLimit({windowMs:15*60*1000,max:1000}));
 app.use('/api', routes);
 app.use(notFound);

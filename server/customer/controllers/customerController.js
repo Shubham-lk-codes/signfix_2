@@ -28,6 +28,21 @@ function notificationConfig(req,res){res.json({pushConfigured:require('../../ser
 async function registerNotificationDevice(req,res){res.status(201).json(await repo.registerNotificationDevice(req.user.id,req.body));}
 async function unregisterNotificationDevice(req,res){res.json(await repo.unregisterNotificationDevice(req.user.id,req.body.token));}
 async function readNotification(req,res){res.json(await repo.readNotification(req.user.id,req.params.id));}
+async function readAllNotifications(req,res){res.json(await repo.readAllNotifications(req.user.id));}
+async function updateAddress(req,res){res.json(await repo.updateAddress(req.user.id,req.params.id,req.body));}
+async function cancelOrder(req,res){res.json(await repo.cancelOrder(req.user.id,req.params.id,req.body.reason));}
+async function cancelService(req,res){res.json(await repo.cancelService(req.user.id,req.params.id,req.body.reason));}
+async function confirmService(req,res){res.json(await repo.confirmService(req.user.id,req.params.id,req.body));}
+async function createReview(req,res){res.status(201).json(await repo.createReview(req.user.id,req.params.id,req.body));}
+async function assets(req,res){res.json(await repo.assets(req.user.id,req.query));}
+async function asset(req,res){res.json(await repo.asset(req.user.id,req.params.id));}
+async function deleteAccount(req,res){res.json(await repo.deleteAccount(req.user.id,req.body.password,req.user));}
+async function createPayment(req,res){res.status(201).json(await repo.createPayment(req.user.id,req.body));}
+async function payments(req,res){res.json(await repo.payments(req.user.id));}
+async function payment(req,res){res.json(await repo.payment(req.user.id,req.params.id));}
+async function capturePayment(req,res){res.json(await repo.capturePayment(req.user.id,req.params.id,req.body));}
+async function verifyPayment(req,res){res.json(await repo.verifyPayment(req.user.id,req.params.id,req.body));}
+async function refundPayment(req,res){res.status(201).json(await repo.refundPayment(req.user.id,req.params.id,req.body));}
 async function createDesign(req,res){res.status(201).json(await repo.createDesign(req.user.id,req.body));}
 async function design(req,res){res.json(await repo.design(req.user.id,req.params.id));}
 async function generateDesign(req,res){res.status(202).json(await repo.generateDesign(req.user.id,req.params.id,req.body.prompt));}
@@ -42,4 +57,4 @@ async function conversations(req,res){res.json({data:await repo.conversations(re
 async function createLead(req,res){res.status(201).json(await repo.createLead(req.user.id,req.body));
 
 }
-module.exports={dashboard,orderOptions,serviceOptions,profile,updateProfile,orders,services,addAddress,deleteAddress,order,quotations,quotation,quotationAction,quotationPdf,serviceTracking,notifications,notificationConfig,registerNotificationDevice,unregisterNotificationDevice,readNotification,createDesign,design,generateDesign,designAction,aiConfig,aiChat,conversations,createLead};
+module.exports={dashboard,orderOptions,serviceOptions,profile,updateProfile,orders,services,addAddress,updateAddress,deleteAddress,order,cancelOrder,cancelService,confirmService,createReview,assets,asset,deleteAccount,createPayment,payments,payment,capturePayment,verifyPayment,refundPayment,quotations,quotation,quotationAction,quotationPdf,serviceTracking,notifications,notificationConfig,registerNotificationDevice,unregisterNotificationDevice,readNotification,readAllNotifications,createDesign,design,generateDesign,designAction,aiConfig,aiChat,conversations,createLead};

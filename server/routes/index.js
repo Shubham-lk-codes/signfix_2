@@ -21,6 +21,7 @@ const operationsRoutes = require('../admin/routes/operationsRoutes');
 const qrRoutes = require('./qrRoutes');
 const aiManagementRoutes = require('../admin/routes/aiManagementRoutes');
 const settingsRoutes = require('../admin/routes/settingsRoutes');
+const paymentRoutes = require('./paymentRoutes');
 const serviceAreaController = require('../admin/controllers/serviceAreaController');
 const calculator = require('../controllers/calculatorController');
 const dashboard = require('../admin/controllers/dashboardController');
@@ -54,6 +55,7 @@ function validImageSignature(file){const b=file.buffer;return file.mimetype==='i
 
 router.get('/health', misc.health);
 router.use('/auth', authRoutes);
+router.use('/payments',paymentRoutes);
 router.use('/catalog', catalogRoutes);
 router.use('/orders', orderRoutes);
 router.use('/services', serviceRoutes);

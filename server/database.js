@@ -5,7 +5,7 @@ const notifyCustomer=(...args)=>require('./services/notificationService').sendEv
 function isConfigured() { return Boolean(process.env.DATABASE_URL); }
 function getPool() { if (!isConfigured()) throw Object.assign(new Error('DATABASE_URL is required'), { status: 503 }); if (!pool) pool = new Pool({ connectionString: process.env.DATABASE_URL, max: Number(process.env.DB_POOL_SIZE || 10) }); return pool; }
 async function health() { await getPool().query('SELECT 1'); return { mode: 'postgres', connected: true }; }
-async function findUserByEmail(email) { const { rows } = await getPool().query(`SELECT u.id,u.name,u.email,u.password_hash AS "passwordHash",r.name AS role FROM users u JOIN roles r ON r.id=u.role_id WHERE LOWER(u.email)=$1 AND u.status='active' LIMIT 1`, [email]); return rows[0]; }
+async function findUserByEmail(email) { const { rows } = await getPool().query(`SELECT u.id,u.name,u.email,u.status,u.verified_at AS "verifiedAt",u.password_hash AS "passwordHash",r.name AS role FROM users u JOIN roles r ON r.id=u.role_id WHERE LOWER(u.email)=$1 LIMIT 1`, [email]); return rows[0]; }
 
 const catalog = {
   products: { table: 'products', select: 'id,name,category,description,image_url AS "imageUrl",pricing_method AS "pricingMethod",base_price AS price,status', search: ['name','category','description'], sort: ['id','name','category','base_price','status'] },

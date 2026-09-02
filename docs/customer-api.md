@@ -17,6 +17,8 @@ Before accessing customer functionality, call `POST /api/customer/location/valid
 | POST | `/auth/reset-password` | Set password using the `resetToken` returned by OTP verification |
 | GET | `/auth/me` | Current token identity |
 | POST | `/auth/logout` | Revoke the current JWT |
+| POST | `/auth/resend-registration-otp` | Resend an OTP to an unverified customer |
+| POST | `/auth/change-password` | Change password and revoke the current JWT |
 
 OTP purposes are `verify_registration` and `reset_password`. Development responses include `developmentOtp`; production responses never expose it and should be connected to SMS/email delivery.
 New customer accounts remain in `pending_verification` status and cannot log in until registration OTP verification activates the account.
@@ -30,7 +32,9 @@ New customer accounts remain in `pending_verification` status and cannot log in 
 | GET | `/customer/orders` | Paginated customer-owned orders; supports `page`, `pageSize`, and `status` |
 | GET | `/customer/services` | Paginated customer-owned service tickets; supports `page`, `pageSize`, and `status` |
 | POST | `/customer/addresses` | Save a delivery/service address |
+| PATCH | `/customer/addresses/:id` | Update an owned saved address |
 | DELETE | `/customer/addresses/:id` | Remove an owned address |
+| DELETE | `/customer/account` | Soft-delete the account after password confirmation |
 
 ## Orders and price calculator
 
@@ -42,6 +46,8 @@ New customer accounts remain in `pending_verification` status and cannot log in 
 
 The calculator returns `label: "Estimated Price"` and the mandatory admin-review notice. Order IDs use `SB-ORD-YYYY-NNNNNN`.
 Order submission recalculates pricing on the server and stores the returned cost breakdown; a client-supplied `estimatedPrice` is never trusted.
+
+Customers can cancel only pre-production orders (`new`, `under_review`, or `quotation`) using `POST /customer/orders/:orderNo/cancel` with `{ "reason": "Ordered by mistake" }`. Later stages require staff handling.
 
 ## Design concepts
 
@@ -63,11 +69,34 @@ These endpoints store concept workflow data. Connect an image-generation provide
 | POST | `/customer/quotations/:quotationNo/action` | `approve` or `request_changes` with optional notes; only valid for a sent, unexpired quotation |
 | GET | `/customer/quotations/:quotationNo/pdf` | Download PDF |
 
-Draft and cancelled quotations are never exposed to customers. Detail responses include line items, quantity, all price components, `availableActions`, and payment capability metadata. Payment options (`advance` and `full`) are advertised only for approved quotations when the customer payment flag, `PAYMENT_GATEWAY_ENABLED`, and `PAYMENT_GATEWAY_PROVIDER` are all configured. Actual payment initiation remains unavailable until a gateway adapter and verified server-side webhook are implemented.
+Draft and cancelled quotations are never exposed to customers. Detail responses include line items, quantity, all price components, `availableActions`, and payment capability metadata.
+
+## Payments
+
+| Method | Endpoint | Purpose / body |
+|---|---|---|
+| POST | `/customer/payments/intents` | Create an intent with `{ quotationNo, type: "advance"|"full", idempotencyKey }`; amount is calculated server-side |
+| GET | `/customer/payments` | Owned payment history |
+| GET | `/customer/payments/:id` | Owned payment status/detail |
+| POST | `/customer/payments/:id/capture` | Capture with `{ providerPaymentId, proof }` |
+| POST | `/customer/payments/:id/verify` | Verify with `{ providerPaymentId, status: "captured"|"failed", proof }` |
+| POST | `/customer/payments/:id/refunds` | Refund with `{ amount, reason }` |
+| POST | `/payments/webhook` | Signed, idempotent payment-provider callback |
+
+Payment responses contain `id`, `quotationNo`, `amount`, `currency`, `type`, `status`, `reference`, `provider`, `providerPaymentId`, `refundedAmount`, `capturedAt`, `verifiedAt`, and `createdAt`. Capture/verification proof is HMAC-SHA256 of `reference:providerPaymentId:status` using `PAYMENT_GATEWAY_SECRET`. Webhooks use `X-SignFix-Signature`, calculated over the exact raw JSON body with `PAYMENT_WEBHOOK_SECRET`; supported event types are `payment_authorized`, `payment_captured`, `payment_failed`, and `refund_processed`.
 
 ## Service and tracking
 
 Fetch the simple five-step mobile flow and active categories with `GET /customer/service-options`. Upload one or more camera/gallery photos, then submit `POST /services` with `category`, either `remarks` or `description`, an address string or structured address, optional GPS coordinates, and `photos`. List with `GET /customer/services`; track an owned request at `GET /customer/services/:ticketId/tracking`. Service IDs use `SB-SRV-YYYY-NNNNNN` and successful creation returns `Your service request has been submitted.`
+
+Customers can cancel before travel/work begins using `POST /customer/services/:ticketNo/cancel` with `{ "reason": "Issue resolved" }`. After work completes, confirm the technician OTP through `POST /customer/services/:ticketNo/confirm-completion` with `{ "otp": "123456", "accepted": true, "remarks": "Work completed" }`. Submit one review through `POST /customer/services/:ticketNo/review` with `{ "rating": 5, "comment": "Excellent work" }`.
+
+## Customer assets
+
+| Method | Endpoint | Purpose |
+|---|---|---|
+| GET | `/customer/assets?page=1&pageSize=20` | Paginated owned assets |
+| GET | `/customer/assets/:assetNo` | Owned asset detail and service history |
 
 Customer priority selection is exposed only when `CUSTOMER_CAN_SELECT_SERVICE_PRIORITY=true`. Otherwise the server forces `normal`, except the `Emergency` category is automatically assigned emergency priority.
 
@@ -86,6 +115,7 @@ The tracking response contains the current status, technician name/contact, job 
 | POST | `/customer/notifications/devices` | Register an Android, iOS, or web FCM token |
 | DELETE | `/customer/notifications/devices` | Deactivate the current device token |
 | PATCH | `/customer/notifications/:id/read` | Mark owned notification read |
+| PATCH | `/customer/notifications/read-all` | Mark all owned notifications read |
 
 Push events include order submission/approval/production/readiness, quotation generation/update, technician assignment/on-the-way/arrival, work start/completion, and final service completion. Feed records include an `eventKey` and entity navigation data such as `orderNo`, `quotationNo`, or `ticketNo`.
 
