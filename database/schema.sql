@@ -145,6 +145,8 @@ ALTER TABLE technician_jobs ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFA
 ALTER TABLE service_tickets ADD COLUMN IF NOT EXISTS service_type VARCHAR(120);
 ALTER TABLE service_tickets ADD COLUMN IF NOT EXISTS admin_instructions TEXT;
 ALTER TABLE service_tickets ADD COLUMN IF NOT EXISTS asset_id BIGINT REFERENCES sign_board_assets(id);
+ALTER TABLE service_tickets ADD COLUMN IF NOT EXISTS order_id BIGINT REFERENCES orders(id) ON DELETE CASCADE;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_service_tickets_order_id ON service_tickets(order_id) WHERE order_id IS NOT NULL;
 ALTER TABLE job_photos DROP CONSTRAINT IF EXISTS job_photos_photo_type_check;
 ALTER TABLE job_photos ADD CONSTRAINT job_photos_photo_type_check CHECK (photo_type IN ('before','damage','work','after'));
 ALTER TABLE job_photos ADD COLUMN IF NOT EXISTS uploaded_by BIGINT REFERENCES users(id);
@@ -225,3 +227,19 @@ CREATE INDEX IF NOT EXISTS idx_payments_quotation_id_desc ON payments(quotation_
 CREATE INDEX IF NOT EXISTS idx_ai_conversations_user_id_desc ON ai_conversations(user_id,id DESC);
 CREATE INDEX IF NOT EXISTS idx_job_history_job_created ON job_status_history(job_id,created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_job_photos_job_created ON job_photos(job_id,created_at);
+
+-- Installation assignments made from an order must also be visible in the
+-- technician job queue. Backfill assignments created before this migration.
+INSERT INTO service_tickets(order_id,ticket_no,customer_id,category,service_type,description,location,photos,priority,status,admin_instructions)
+SELECT o.id,o.order_no,o.customer_id,'Installation','Installation',
+       CONCAT('Install ',COALESCE(o.specifications->>'product','sign board'),' for order ',o.order_no),
+       jsonb_build_object('address',o.specifications->'address'),'[]'::jsonb,'normal','technician_assigned',o.admin_notes
+FROM orders o
+WHERE o.installation_technician_id IS NOT NULL
+ON CONFLICT (order_id) WHERE order_id IS NOT NULL DO NOTHING;
+
+INSERT INTO technician_jobs(ticket_id,technician_id,status,scheduled_at)
+SELECT s.id,o.installation_technician_id,'assigned',NOW()
+FROM orders o JOIN service_tickets s ON s.order_id=o.id
+WHERE o.installation_technician_id IS NOT NULL
+  AND NOT EXISTS (SELECT 1 FROM technician_jobs j WHERE j.ticket_id=s.id);
