@@ -5,14 +5,12 @@ const schemas=require('../validation/technicianSchemas');
 const validate=require('../../middleware/validate');
 const upload=require('../middleware/technicianUpload');
 const {authenticate,authorize}=require('../../middleware/auth');
-const {requireServiceArea}=require('../../services/serviceAreaService');
 
 const id=z.string().regex(/^\d+$/);
 const validateId=(req,res,next)=>{const parsed=id.safeParse(req.params.jobId);if(!parsed.success)return res.status(422).json({error:'Invalid job id'});next();};
 const validateEvidence=(req,res,next)=>{const parsed=schemas.evidence.safeParse(req.body);if(!parsed.success)return res.status(422).json({error:'Validation failed',details:parsed.error.flatten().fieldErrors});req.body=parsed.data;next();};
 const validateJobQuery=(req,res,next)=>{const parsed=schemas.jobQuery.safeParse(req.query);if(!parsed.success)return res.status(422).json({error:'Validation failed',details:parsed.error.flatten().fieldErrors});req.validatedQuery=parsed.data;next();};
 router.use(authenticate,authorize('technician'));
-router.use(requireServiceArea);
 router.get('/dashboard',controller.dashboard);
 router.get('/profile',controller.profile);
 router.patch('/profile',validate(schemas.profile),controller.updateProfile);
