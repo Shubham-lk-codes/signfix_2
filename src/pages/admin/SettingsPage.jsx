@@ -16,8 +16,8 @@ const tabs = [
   ["services", "Service & technician", Wrench],
   ["security", "Security", LockKeyhole],
 ];
-export default function SettingsPage() {
-  const [tab, setTab] = useState("company"),
+export default function SettingsPage({ initialTab = "company" }) {
+  const [tab, setTab] = useState(initialTab),
     [settings, setSettings] = useState(null),
     [access, setAccess] = useState(null),
     [categories, setCategories] = useState([]),

@@ -9,6 +9,7 @@ export function AuthProvider({ children }) {
   }, []);
   async function login(credentials) { const result = await post('/api/auth/login', credentials); sessionStorage.setItem('signfix_token', result.token); setUser(result.user); return result.user; }
   function logout() { sessionStorage.removeItem('signfix_token'); setUser(null); }
-  return <AuthContext.Provider value={{ user, loading, login, logout }}>{children}</AuthContext.Provider>;
+  const can = permission => user?.role === 'super_admin' || user?.permissions?.includes('*') || user?.permissions?.includes(permission);
+  return <AuthContext.Provider value={{ user, loading, login, logout, can }}>{children}</AuthContext.Provider>;
 }
 export const useAuth = () => useContext(AuthContext);

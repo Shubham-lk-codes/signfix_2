@@ -5,6 +5,7 @@ const { jwtSecret,jwtIssuer,jwtAudience } = require('../config');
 const crypto = require('crypto');
 
 function issueToken(user) { const jti=crypto.randomUUID(); return jwt.sign(user,jwtSecret,{algorithm:'HS256',expiresIn:'8h',jwtid:jti,issuer:jwtIssuer,audience:jwtAudience}); }
+async function safeUser(user){const permissions=user.role==='super_admin'?['*']:(await database.getPool().query('SELECT p.name FROM users u JOIN role_permissions rp ON rp.role_id=u.role_id JOIN permissions p ON p.id=rp.permission_id WHERE u.id=$1 ORDER BY p.name',[user.id])).rows.map(row=>row.name);return{id:user.id,name:user.name,email:user.email,role:user.role,permissions};}
 
 async function login(req, res) {
   const email = req.body.email.trim().toLowerCase();
@@ -14,11 +15,11 @@ async function login(req, res) {
   const adminRoles = ['super_admin', 'admin', 'sales_manager', 'service_manager', 'technician_manager', 'support_agent'];
   if (req.body.portal === 'admin' && !adminRoles.includes(user.role)) return res.status(403).json({ error: 'Admin access required' });
   if (req.body.portal && req.body.portal !== 'admin' && req.body.portal !== user.role) return res.status(403).json({ error: `${req.body.portal} access required` });
-  const safeUser = { id: user.id, name: user.name, email: user.email, role: user.role };
+  const authenticatedUser = await safeUser(user);
   await database.getPool().query('INSERT INTO audit_logs(user_id,action,entity_type,metadata) VALUES($1,$2,$3,$4::jsonb)',[user.id,'auth.login','user',JSON.stringify({portal:req.body.portal||'unspecified',ip:req.ip})]);
-  res.json({ token: issueToken(safeUser), user: safeUser });
+  res.json({ token: issueToken(authenticatedUser), user: authenticatedUser });
 }
-function me(req, res) { res.json({ user: req.user }); }
+async function me(req, res) { const user=await database.findUserByEmail(req.user.email);if(!user||user.status!=='active')return res.status(401).json({error:'Account is not active'});res.json({user:await safeUser(user)}); }
 
 async function register(req,res){const client=await database.getPool().connect();try{await client.query('BEGIN');const role=(await client.query("SELECT id FROM roles WHERE name='customer'")).rows[0];if(!role)throw Object.assign(new Error('Customer role is not configured'),{status:503});const hash=await bcrypt.hash(req.body.password,12);const {rows}=await client.query(`INSERT INTO users(role_id,name,email,mobile,password_hash,status) VALUES($1,$2,LOWER($3),$4,$5,'pending_verification') RETURNING id,name,email,mobile`,[role.id,req.body.name,req.body.email,req.body.mobile,hash]);const address={addressLine:req.body.address,city:req.body.city,state:req.body.state,pincode:req.body.pincode};const customer=(await client.query('INSERT INTO customers(user_id,company_name,address) VALUES($1,$2,$3::jsonb) RETURNING id',[rows[0].id,req.body.companyName,JSON.stringify(address)])).rows[0];await client.query(`INSERT INTO customer_addresses(customer_id,label,address_line,city,state,pincode,is_default) VALUES($1,'Primary',$2,$3,$4,$5,TRUE)`,[customer.id,req.body.address,req.body.city,req.body.state,req.body.pincode]);const otp=String(crypto.randomInt(100000,1000000));await client.query('INSERT INTO auth_otps(user_id,purpose,otp_hash,expires_at) VALUES($1,$2,$3,NOW()+INTERVAL \'10 minutes\')',[rows[0].id,'verify_registration',await bcrypt.hash(otp,10)]);await client.query('COMMIT');res.status(201).json({message:'Registration successful. Verify the OTP sent to your mobile/email.',verificationRequired:true,...(process.env.NODE_ENV==='production'?{}:{developmentOtp:otp})});}catch(e){await client.query('ROLLBACK');if(e.code==='23505')throw Object.assign(new Error('Email or mobile number is already registered'),{status:409});throw e;}finally{client.release();}}
 

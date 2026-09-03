@@ -1,3 +1,373 @@
-import React,{useEffect,useState}from'react';import{ArrowLeft,Check,Eye,FileText,Save,X}from'lucide-react';import{get,patch}from'../../api/client';import StatusBadge from'../../components/ui/StatusBadge';
-const statuses=['new','under_review','quotation','approved','production','ready','installation','completed','cancelled'];
-export default function OrdersPage({navigate}){const[rows,setRows]=useState([]),[filter,setFilter]=useState(''),[search,setSearch]=useState(''),[order,setOrder]=useState(null),[error,setError]=useState(''),[notice,setNotice]=useState('');async function load(){try{const p=new URLSearchParams();if(filter)p.set('status',filter);if(search.trim())p.set('search',search.trim());setRows((await get(`/api/orders?${p}`)).data||[]);setError('')}catch(e){setError(e.message)}}useEffect(()=>{load()},[filter]);async function open(id){try{setOrder(await get(`/api/orders/${id}`));setNotice('')}catch(e){setError(e.message)}}async function save(e){e.preventDefault();try{const f=new FormData(e.currentTarget),specifications={product:f.get('product'),material:f.get('material'),lighting:f.get('lighting'),length:Number(f.get('length')),width:Number(f.get('width')),quantity:Number(f.get('quantity'))},updated=await patch(`/api/orders/${order.id}`,{specifications,adminNotes:f.get('adminNotes'),technicianId:f.get('technicianId')?Number(f.get('technicianId')):null,status:f.get('status')});setOrder(updated);setNotice('Order changes saved and the customer was notified.');await load()}catch(e){setError(e.message)}}async function decision(status){try{const updated=await patch(`/api/orders/${order.id}/status`,{status});setOrder({...order,...updated});setNotice(`Order ${status==='approved'?'approved':'cancelled'}.`);await load()}catch(e){setError(e.message)}}async function reviewDesign(id,action){try{const result=await patch(`/api/orders/${order.id}/designs/${id}`,{action});setOrder({...order,designs:order.designs.map(d=>d.id===id?{...d,status:result.status}:d)});setNotice('Design review saved and the customer was notified.')}catch(e){setError(e.message)}}if(order)return <section className="content order-management"><div className="headline"><div><button className="text-button" onClick={()=>setOrder(null)}><ArrowLeft size={16}/>Orders</button><h1>{order.id}</h1><small>{order.customer} · <StatusBadge>{order.status}</StatusBadge></small></div><div className="order-decision-actions"><button className="outline approve-action" disabled={order.status==='approved'} onClick={()=>decision('approved')}><Check size={16}/>Approve</button><button className="outline reject-action" disabled={order.status==='cancelled'} onClick={()=>decision('cancelled')}><X size={16}/>Reject</button></div></div>{error&&<div className="auth-error">{error}</div>}{notice&&<div className="form-message">{notice}</div>}<form className="card order-editor" onSubmit={save}><div className="panel-heading"><div><h2>Order specifications</h2><p>Edit production details, assign installation, add notes, and advance the workflow.</p></div></div><div className="order-form-grid">{['product','material','lighting','length','width','quantity'].map(k=><label key={k}>{k}<input name={k} type={['length','width','quantity'].includes(k)?'number':'text'} step="any" defaultValue={order[k]||''}/></label>)}<label>Status<select name="status" defaultValue={order.status}>{statuses.map(s=><option key={s} value={s}>{s.replaceAll('_',' ')}</option>)}</select></label><label>Installation technician<select name="technicianId" defaultValue={order.technicianId||''}><option value="">Unassigned</option>{order.technicians.map(t=><option value={t.id} key={t.id}>{t.name} · {t.mobile}</option>)}</select></label><label className="wide">Admin notes<textarea name="adminNotes" rows="4" defaultValue={order.adminNotes||''} placeholder="Internal production, customer, or installation notes"/></label></div><button className="primary"><Save size={16}/>Save changes</button></form><article className="card profile-section"><div className="panel-heading"><div><h2>Design review</h2><p>Approve, reject, or request changes to submitted designs.</p></div></div>{order.designs.length?order.designs.map(d=><div className="order-related order-design" key={d.id}><div><b>Design request #{d.id}</b><small>{new Date(d.createdAt).toLocaleDateString('en-IN')}</small></div><StatusBadge>{d.status}</StatusBadge><pre>{JSON.stringify(d.requirements,null,2)}</pre><span className="table-actions"><button className="outline approve-action" onClick={()=>reviewDesign(d.id,'approve')}><Check size={14}/>Approve</button><button className="outline" onClick={()=>reviewDesign(d.id,'request_modification')}>Request changes</button><button className="outline reject-action" onClick={()=>reviewDesign(d.id,'reject')}><X size={14}/>Reject</button></span></div>):<p className="empty-copy">No design submitted.</p>}</article><article className="card profile-section"><div className="panel-heading"><div><h2>Quotations</h2><p>Review commercial documents linked to this order.</p></div><button className="outline" onClick={()=>navigate('/quotations')}><FileText size={15}/>Manage quotations</button></div>{order.quotations.length?order.quotations.map(q=><div className="order-related" key={q.quotationNo}><b>{q.quotationNo}</b><span>₹{Number(q.finalAmount).toLocaleString('en-IN')}</span><StatusBadge>{q.status}</StatusBadge><button className="outline" onClick={()=>navigate('/quotations')}>Modify</button></div>):<p className="empty-copy">No quotation created yet.</p>}</article></section>;return <section className="content order-management"><div className="headline"><div><p>SALES</p><h1>Order management</h1><small>Review orders from submission through installation and completion.</small></div></div><div className="status-tabs"><button className={!filter?'active':''} onClick={()=>setFilter('')}>All</button>{statuses.map(s=><button className={filter===s?'active':''} onClick={()=>setFilter(s)} key={s}>{s.replaceAll('_',' ')}</button>)}</div><div className="resource-toolbar order-search"><input value={search} onChange={e=>setSearch(e.target.value)} onKeyDown={e=>e.key==='Enter'&&load()} placeholder="Order, customer or product"/><button className="outline" onClick={load}>Search</button></div>{error&&<div className="auth-error">{error}</div>}<article className="tablecard card"><div className="customer-table-wrap"><table><thead><tr><th>Order ID</th><th>Customer</th><th>Product</th><th>Amount</th><th>Status</th><th>Date</th><th>Actions</th></tr></thead><tbody>{rows.map(r=><tr key={r.id}><td><b>{r.id}</b></td><td>{r.customer}</td><td>{r.product||'—'}</td><td>₹{Number(r.estimatedPrice||0).toLocaleString('en-IN')}</td><td><StatusBadge>{r.status}</StatusBadge></td><td>{new Date(r.createdAt).toLocaleDateString('en-IN')}</td><td><button className="outline" onClick={()=>open(r.id)}><Eye size={15}/>View</button></td></tr>)}</tbody></table></div></article></section>}
+import React, { useEffect, useState } from "react";
+import { ArrowLeft, Check, Eye, FileText, Save, X } from "lucide-react";
+import { get, patch } from "../../api/client";
+import StatusBadge from "../../components/ui/StatusBadge";
+const statuses = [
+  "new",
+  "under_review",
+  "quotation",
+  "approved",
+  "production",
+  "ready",
+  "installation",
+  "completed",
+  "cancelled",
+];
+export default function OrdersPage({ navigate }) {
+  const [rows, setRows] = useState([]),
+    [filter, setFilter] = useState(""),
+    [search, setSearch] = useState(""),
+    [order, setOrder] = useState(null),
+    [error, setError] = useState(""),
+    [notice, setNotice] = useState("");
+  async function load() {
+    try {
+      const p = new URLSearchParams();
+      if (filter) p.set("status", filter);
+      if (search.trim()) p.set("search", search.trim());
+      setRows((await get(`/api/orders?${p}`)).data || []);
+      setError("");
+    } catch (e) {
+      setError(e.message);
+    }
+  }
+  useEffect(() => {
+    load();
+  }, [filter]);
+  async function open(id) {
+    try {
+      setOrder(await get(`/api/orders/${id}`));
+      setNotice("");
+    } catch (e) {
+      setError(e.message);
+    }
+  }
+  async function save(e) {
+    e.preventDefault();
+    try {
+      const f = new FormData(e.currentTarget),
+        specifications = {
+          product: f.get("product"),
+          material: f.get("material"),
+          lighting: f.get("lighting"),
+          length: Number(f.get("length")),
+          width: Number(f.get("width")),
+          quantity: Number(f.get("quantity")),
+        },
+        updated = await patch(`/api/orders/${order.id}`, {
+          specifications,
+          adminNotes: f.get("adminNotes"),
+          technicianId: f.get("technicianId")
+            ? Number(f.get("technicianId"))
+            : null,
+          status: f.get("status"),
+        });
+      setOrder(updated);
+      setNotice("Order changes saved and the customer was notified.");
+      await load();
+    } catch (e) {
+      setError(e.message);
+    }
+  }
+  async function decision(status) {
+    try {
+      const updated = await patch(`/api/orders/${order.id}/status`, { status });
+      setOrder({ ...order, ...updated });
+      setNotice(`Order ${status === "approved" ? "approved" : "cancelled"}.`);
+      await load();
+    } catch (e) {
+      setError(e.message);
+    }
+  }
+  async function reviewDesign(id, action) {
+    try {
+      const result = await patch(`/api/orders/${order.id}/designs/${id}`, {
+        action,
+      });
+      setOrder({
+        ...order,
+        designs: order.designs.map((d) =>
+          d.id === id ? { ...d, status: result.status } : d,
+        ),
+      });
+      setNotice("Design review saved and the customer was notified.");
+    } catch (e) {
+      setError(e.message);
+    }
+  }
+  if (order)
+    return (
+      <section className="content order-management">
+        <div className="headline">
+          <div>
+            <button className="text-button" onClick={() => setOrder(null)}>
+              <ArrowLeft size={16} />
+              Orders
+            </button>
+            <h1>{order.id}</h1>
+            <small>
+              {order.customer} · <StatusBadge>{order.status}</StatusBadge>
+            </small>
+          </div>
+          <div className="order-decision-actions">
+            <button
+              className="outline approve-action"
+              disabled={order.status === "approved"}
+              onClick={() => decision("approved")}
+            >
+              <Check size={16} />
+              Approve
+            </button>
+            <button
+              className="outline reject-action"
+              disabled={order.status === "cancelled"}
+              onClick={() => decision("cancelled")}
+            >
+              <X size={16} />
+              Reject
+            </button>
+          </div>
+        </div>
+        {error && <div className="auth-error">{error}</div>}
+        {notice && <div className="form-message">{notice}</div>}
+        <form className="card order-editor" onSubmit={save}>
+          <div className="panel-heading">
+            <div>
+              <h2>Order specifications</h2>
+              <p>
+                Edit production details, assign installation, add notes, and
+                advance the workflow.
+              </p>
+            </div>
+          </div>
+          <div className="order-form-grid">
+            {[
+              "product",
+              "material",
+              "lighting",
+              "length",
+              "width",
+              "quantity",
+            ].map((k) => (
+              <label key={k}>
+                {k}
+                <input
+                  name={k}
+                  type={
+                    ["length", "width", "quantity"].includes(k)
+                      ? "number"
+                      : "text"
+                  }
+                  step="any"
+                  defaultValue={order[k] || ""}
+                />
+              </label>
+            ))}
+            <label>
+              Status
+              <select name="status" defaultValue={order.status}>
+                {statuses.map((s) => (
+                  <option key={s} value={s}>
+                    {s.replaceAll("_", " ")}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Installation technician
+              <select
+                name="technicianId"
+                defaultValue={order.technicianId || ""}
+              >
+                <option value="">Unassigned</option>
+                {order.technicians.map((t) => (
+                  <option value={t.id} key={t.id}>
+                    {t.name} · {t.mobile}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="wide">
+              Admin notes
+              <textarea
+                name="adminNotes"
+                rows="4"
+                defaultValue={order.adminNotes || ""}
+                placeholder="Internal production, customer, or installation notes"
+              />
+            </label>
+          </div>
+          <button className="primary">
+            <Save size={16} />
+            Save changes
+          </button>
+        </form>
+        <article className="card profile-section">
+          <div className="panel-heading">
+            <div>
+              <h2>Design review</h2>
+              <p>Approve, reject, or request changes to submitted designs.</p>
+            </div>
+          </div>
+          {order.designs.length ? (
+            order.designs.map((d) => (
+              <div className="order-related order-design" key={d.id}>
+                <div>
+                  <b>Design request #{d.id}</b>
+                  <small>
+                    {new Date(d.createdAt).toLocaleDateString("en-IN")}
+                  </small>
+                </div>
+                <StatusBadge>{d.status}</StatusBadge>
+                <pre>{JSON.stringify(d.requirements, null, 2)}</pre>
+                <span className="table-actions">
+                  <button
+                    className="outline approve-action"
+                    onClick={() => reviewDesign(d.id, "approve")}
+                  >
+                    <Check size={14} />
+                    Approve
+                  </button>
+                  <button
+                    className="outline"
+                    onClick={() => reviewDesign(d.id, "request_modification")}
+                  >
+                    Request changes
+                  </button>
+                  <button
+                    className="outline reject-action"
+                    onClick={() => reviewDesign(d.id, "reject")}
+                  >
+                    <X size={14} />
+                    Reject
+                  </button>
+                </span>
+              </div>
+            ))
+          ) : (
+            <p className="empty-copy">No design submitted.</p>
+          )}
+        </article>
+        <article className="card profile-section">
+          <div className="panel-heading">
+            <div>
+              <h2>Quotations</h2>
+              <p>Review commercial documents linked to this order.</p>
+            </div>
+            <button className="outline" onClick={() => navigate("/quotations")}>
+              <FileText size={15} />
+              Manage quotations
+            </button>
+          </div>
+          {order.quotations.length ? (
+            order.quotations.map((q) => (
+              <div className="order-related" key={q.quotationNo}>
+                <b>{q.quotationNo}</b>
+                <span>₹{Number(q.finalAmount).toLocaleString("en-IN")}</span>
+                <StatusBadge>{q.status}</StatusBadge>
+                <button
+                  className="outline"
+                  onClick={() => navigate("/quotations")}
+                >
+                  Modify
+                </button>
+              </div>
+            ))
+          ) : (
+            <p className="empty-copy">No quotation created yet.</p>
+          )}
+        </article>
+        <article className="card profile-section">
+          <h2>Payments</h2>
+          {order.payments?.length ? order.payments.map((payment) => <div className="order-related" key={payment.id}><b>{payment.reference}</b><span>₹{Number(payment.amount).toLocaleString("en-IN")}</span><StatusBadge>{payment.status}</StatusBadge><small>{payment.provider || "—"}</small></div>) : <p className="empty-copy">No payments linked to this order.</p>}
+        </article>
+        <article className="card profile-section">
+          <h2>Service and jobs</h2>
+          {order.services?.length ? order.services.map((service) => <div className="order-related" key={service.ticketNo}><b>{service.ticketNo}</b><StatusBadge>{service.status}</StatusBadge><span>{service.technician || "Unassigned"}</span>{service.jobId && <small>Job #{service.jobId} · {service.jobStatus}</small>}</div>) : <p className="empty-copy">No service or installation jobs linked.</p>}
+        </article>
+      </section>
+    );
+  return (
+    <section className="content order-management">
+      <div className="headline">
+        <div>
+          <p>SALES</p>
+          <h1>Order management</h1>
+          <small>
+            Review orders from submission through installation and completion.
+          </small>
+        </div>
+      </div>
+      <div className="status-tabs">
+        <button
+          className={!filter ? "active" : ""}
+          onClick={() => setFilter("")}
+        >
+          All
+        </button>
+        {statuses.map((s) => (
+          <button
+            className={filter === s ? "active" : ""}
+            onClick={() => setFilter(s)}
+            key={s}
+          >
+            {s.replaceAll("_", " ")}
+          </button>
+        ))}
+      </div>
+      <div className="resource-toolbar order-search">
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && load()}
+          placeholder="Order, customer or product"
+        />
+        <button className="outline" onClick={load}>
+          Search
+        </button>
+      </div>
+      {error && <div className="auth-error">{error}</div>}
+      <article className="tablecard card">
+        <div className="customer-table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Order ID</th>
+                <th>Customer</th>
+                <th>Product</th>
+                <th>Amount</th>
+                <th>Status</th>
+                <th>Date</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r) => (
+                <tr key={r.id}>
+                  <td>
+                    <b>{r.id}</b>
+                  </td>
+                  <td>{r.customer}</td>
+                  <td>{r.product || "—"}</td>
+                  <td>
+                    ₹{Number(r.estimatedPrice || 0).toLocaleString("en-IN")}
+                  </td>
+                  <td>
+                    <StatusBadge>{r.status}</StatusBadge>
+                  </td>
+                  <td>{new Date(r.createdAt).toLocaleDateString("en-IN")}</td>
+                  <td>
+                    <button className="outline" onClick={() => open(r.id)}>
+                      <Eye size={15} />
+                      View
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </article>
+    </section>
+  );
+}

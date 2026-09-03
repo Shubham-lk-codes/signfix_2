@@ -30,6 +30,7 @@ export default function AdminRouter({ path, navigate }) {
     : path === '/assets' ? <AssetsPage />
     : path === '/ai-management' ? <AIManagementPage />
     : path === '/settings' ? <SettingsPage />
+    : path === '/roles' || path === '/permissions' ? <SettingsPage initialTab="access" />
     : path === '/reports' ? <ReportsPage />
       : path === '/notifications' ? <NotificationsPage />
       : path === '/pricing' ? <PricingPage />
