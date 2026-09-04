@@ -13,4 +13,10 @@ async function addMaterial(req,res){res.status(201).json({data:await service.add
 async function shareLocation(req,res){res.status(201).json({data:await service.shareLocation(req.params.jobId,req.body,req.user)});}
 async function requestOtp(req,res){res.status(201).json({data:await service.requestCompletionOtp(req.params.jobId,req.user)});}
 async function confirm(req,res){res.json({data:await service.confirmCompletion(req.params.jobId,req.body,req.user)});}
-module.exports={dashboard,profile,updateProfile,listJobs,getJob,navigation,updateStatus,addEvidence,addMaterial,shareLocation,requestOtp,confirm};
+async function notifications(req,res){res.json({data:(await repo.pool().query('SELECT id,channel,event_key AS "eventKey",title,body,data,read_at AS "readAt",created_at AS "createdAt" FROM notifications WHERE user_id=$1 ORDER BY id DESC LIMIT 100',[req.user.id])).rows});}
+async function readNotification(req,res){const row=(await repo.pool().query('UPDATE notifications SET read_at=COALESCE(read_at,NOW()) WHERE id=$1 AND user_id=$2 RETURNING id,read_at AS "readAt"',[req.params.id,req.user.id])).rows[0];if(!row)throw Object.assign(new Error('Notification not found'),{status:404});res.json(row);}
+async function readAllNotifications(req,res){const result=await repo.pool().query('UPDATE notifications SET read_at=NOW() WHERE user_id=$1 AND read_at IS NULL',[req.user.id]);res.json({updated:result.rowCount});}
+async function registerDevice(req,res){await require('../../database').registerDeviceToken(req.user.id,req.body.token,req.body.platform);res.status(201).json({registered:true});}
+async function unregisterDevice(req,res){const result=await repo.pool().query('UPDATE device_tokens SET active=FALSE,last_seen_at=NOW() WHERE user_id=$1 AND token=$2',[req.user.id,req.body.token]);res.json({unregistered:Boolean(result.rowCount)});}
+async function reviews(req,res){res.json(await require('../../services/reviewService').technician(req.user.id));}
+module.exports={dashboard,profile,updateProfile,listJobs,getJob,navigation,updateStatus,addEvidence,addMaterial,shareLocation,requestOtp,confirm,notifications,readNotification,readAllNotifications,registerDevice,unregisterDevice,reviews};

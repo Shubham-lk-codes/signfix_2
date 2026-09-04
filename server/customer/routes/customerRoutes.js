@@ -105,6 +105,8 @@ router.post(
   ),
   controller.createReview,
 );
+router.get("/reviews",controller.reviews);
+router.post("/orders/:id/review",validate(z.object({rating:z.coerce.number().int().min(1).max(5),comment:z.string().max(2000).optional()})),controller.createOrderReview);
 router.get("/assets", controller.assets);
 router.get("/assets/:id", controller.asset);
 router.get("/notifications", controller.notifications);
@@ -230,6 +232,7 @@ router.post(
   validate(
     z.object({
       message: z.string().min(1).max(4000),
+      conversationId: z.coerce.number().int().positive().optional(),
       requirements: aiRequirements.optional(),
     }),
   ),

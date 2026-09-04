@@ -135,9 +135,21 @@ async function confirmService(req, res) {
   res.json(await repo.confirmService(req.user.id, req.params.id, req.body));
 }
 async function createReview(req, res) {
+  const rating = Number(req.body?.rating);
+  if (!rating || rating < 1 || rating > 5) {
+    throw Object.assign(new Error("Rating must be an integer between 1 and 5"), { status: 400 });
+  }
   res
     .status(201)
-    .json(await repo.createReview(req.user.id, req.params.id, req.body));
+    .json(await require("../../services/reviewService").service(req.user.id, req.params.id, req.body));
+}
+async function reviews(req,res){res.json(await require("../../services/reviewService").customer(req.user.id));}
+async function createOrderReview(req,res){
+  const rating = Number(req.body?.rating);
+  if (!rating || rating < 1 || rating > 5) {
+    throw Object.assign(new Error("Rating must be an integer between 1 and 5"), { status: 400 });
+  }
+  res.status(201).json(await require("../../services/reviewService").order(req.user.id,req.params.id,req.body));
 }
 async function assets(req, res) {
   res.json(await repo.assets(req.user.id, req.query));
@@ -315,6 +327,18 @@ function nextRequirement(missing) {
     : "Would you like to create an estimated quotation?";
 }
 async function aiChat(req, res) {
+  const result = await require("../../services/assistantService").chat(
+    req.user.id,
+    req.body.message,
+    req.body.conversationId,
+  );
+  return res.json({
+    ...result,
+    name: "SignFix AI Assistant",
+    disclaimer:
+      "AI guidance is informational. Official prices, payments, and operational decisions remain controlled by SignFix workflows.",
+  });
+  /* Legacy response composition retained below for migration reference. */
   if (!process.env.OPENAI_API_KEY)
     throw Object.assign(new Error("AI provider is not configured"), {
       status: 503,
@@ -395,7 +419,7 @@ async function aiChat(req, res) {
   });
 }
 async function conversations(req, res) {
-  res.json({ data: await repo.conversations(req.user.id) });
+  res.json(await require("../../services/assistantService").conversations(req.user.id));
 }
 async function createLead(req, res) {
   res.status(201).json(await repo.createLead(req.user.id, req.body));
@@ -416,6 +440,8 @@ module.exports = {
   cancelService,
   confirmService,
   createReview,
+  reviews,
+  createOrderReview,
   assets,
   asset,
   deleteAccount,

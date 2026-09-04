@@ -142,4 +142,5 @@ router.patch(
   design.conceptAction,
 );
 router.get("/design-files/:id", design.file);
+router.get("/reviews",c.reviews);
 module.exports = router;

@@ -23,4 +23,10 @@ router.post('/jobs/:jobId/materials',validateId,validate(schemas.material),contr
 router.post('/jobs/:jobId/location',validateId,validate(schemas.location),controller.shareLocation);
 router.post('/jobs/:jobId/completion-otp',validateId,controller.requestOtp);
 router.post('/jobs/:jobId/confirm',validateId,validate(schemas.confirmation),controller.confirm);
+router.get('/notifications',controller.notifications);
+router.patch('/notifications/read-all',controller.readAllNotifications);
+router.patch('/notifications/:id/read',controller.readNotification);
+router.post('/notifications/devices',validate(z.object({token:z.string().min(20),platform:z.enum(['android','ios','web'])})),controller.registerDevice);
+router.delete('/notifications/devices',validate(z.object({token:z.string().min(20)})),controller.unregisterDevice);
+router.get('/reviews',controller.reviews);
 module.exports=router;

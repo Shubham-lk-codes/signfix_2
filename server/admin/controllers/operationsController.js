@@ -347,6 +347,7 @@ async function addAssetHistory(req, res) {
   );
   res.status(201).json(rows[0]);
 }
+async function reviews(req,res){res.json(await require('../../services/reviewService').admin());}
 module.exports = {
   tickets,
   ticket,
@@ -361,4 +362,5 @@ module.exports = {
   updateAsset,
   updateAssetQr,
   addAssetHistory,
+  reviews,
 };

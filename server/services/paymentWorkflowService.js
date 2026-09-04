@@ -293,6 +293,26 @@ async function applyVerifiedState(
         [current.order_id],
       );
   }
+  if (state === "captured" || state === "failed") {
+    const meta = (
+      await client.query(
+        `SELECT q.quotation_no,c.user_id,p.amount FROM payments p JOIN quotations q ON q.id=p.quotation_id JOIN orders o ON o.id=q.order_id JOIN customers c ON c.id=o.customer_id WHERE p.id=$1`,
+        [paymentId],
+      )
+    ).rows[0];
+    if (meta?.user_id) {
+      const isSuccess = state === "captured";
+      require("./notificationService").sendEvent(
+        meta.user_id,
+        isSuccess ? "payment.success" : "payment.failed",
+        isSuccess ? "Payment Successful" : "Payment Failed",
+        isSuccess
+          ? `Payment of INR ${meta.amount} for quotation ${meta.quotation_no} was successful.`
+          : `Payment of INR ${meta.amount} for quotation ${meta.quotation_no} failed.`,
+        { paymentId, quotationNo: meta.quotation_no, state },
+      ).catch(() => {});
+    }
+  }
   return current;
 }
 
