@@ -670,7 +670,6 @@ async function refundPayment(userId, id, data) {
 }
 
 const visibleQuotationStatuses = [
-  "sent",
   "admin_approved",
   "changes_requested",
   "approved",
@@ -680,7 +679,8 @@ const visibleQuotationStatuses = [
 function paymentCapability(enabled, quotation) {
   const configured =
     process.env.PAYMENT_GATEWAY_ENABLED === "true" &&
-    Boolean(process.env.PAYMENT_GATEWAY_PROVIDER);
+    process.env.PAYMENT_GATEWAY_PROVIDER === "razorpay" &&
+    Boolean(process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET);
   return {
     enabled: Boolean(enabled && configured),
     provider:

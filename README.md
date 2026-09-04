@@ -58,5 +58,11 @@ Never commit `.env` or use the demo credentials in production.
 
 - Vercel builds with `.env.production`, so browser API requests go to `https://signfix-2.onrender.com`.
 - Render uses `render.yaml`. Add `DATABASE_URL` in the Render service environment; it is intentionally not stored in Git.
+
+### Razorpay payments
+
+Set `PAYMENT_GATEWAY_ENABLED=true`, `PAYMENT_GATEWAY_PROVIDER=razorpay`, and provide test/live values for `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, and `RAZORPAY_WEBHOOK_SECRET`. Configure the Razorpay webhook URL as `https://<your-host>/api/payments/webhook` and subscribe to `payment.authorized`, `payment.captured`, and `payment.failed`. Use Razorpay Test Mode keys and its separate Test Mode webhook while validating the workflow; credentials must remain in environment variables.
+
+Only a captured transaction whose provider order, amount, currency, and signature match the stored payment can advance an accepted order to production. Calculator estimates are never read by payment creation.
 - Render allows both `https://signfix-2.vercel.app` and the local Vite origin through `CORS_ORIGIN`.
 - Redeploy both services after pushing configuration changes.

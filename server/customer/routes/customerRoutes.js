@@ -52,11 +52,9 @@ router.post("/addresses", validate(address), controller.addAddress);
 router.patch(
   "/addresses/:id",
   validate(
-    address
-      .partial()
-      .refine((value) => Object.keys(value).length > 0, {
-        message: "At least one address field is required",
-      }),
+    address.partial().refine((value) => Object.keys(value).length > 0, {
+      message: "At least one address field is required",
+    }),
   ),
   controller.updateAddress,
 );
@@ -142,26 +140,18 @@ router.post(
   controller.createPayment,
 );
 router.post(
-  "/payments/:id/capture",
-  validate(
-    z.object({
-      providerPaymentId: z.string().min(3).max(160),
-      proof: z.string().regex(/^[a-f0-9]{64}$/),
-    }),
-  ),
-  controller.capturePayment,
-);
-router.post(
   "/payments/:id/verify",
   validate(
     z.object({
-      providerPaymentId: z.string().min(3).max(160),
-      status: z.enum(["captured", "failed"]),
-      proof: z.string().regex(/^[a-f0-9]{64}$/),
+      razorpayPaymentId: z.string().min(3).max(160),
+      razorpayOrderId: z.string().min(3).max(160),
+      razorpaySignature: z.string().regex(/^[a-f0-9]{64}$/),
     }),
   ),
   controller.verifyPayment,
 );
+router.post("/payments/:id/retry", controller.retryPayment);
+router.post("/payments/:id/cancel", controller.cancelPayment);
 router.post(
   "/payments/:id/refunds",
   validate(

@@ -15,7 +15,7 @@ async function list(req, res) {
     );
   }
   const { rows } = await pool().query(
-    `SELECT q.quotation_no AS "quotationNo",o.order_no AS "orderNo",u.name AS customer,q.final_amount AS "finalAmount",q.valid_until AS "validUntil",q.status,q.updated_at AS "updatedAt" FROM quotations q JOIN orders o ON o.id=q.order_id JOIN customers c ON c.id=o.customer_id JOIN users u ON u.id=c.user_id ${where.length ? "WHERE " + where.join(" AND ") : ""} ORDER BY q.id DESC`,
+    `SELECT q.quotation_no AS "quotationNo",o.order_no AS "orderNo",u.name AS customer,q.final_amount AS "finalAmount",q.valid_until AS "validUntil",q.status,(SELECT p.status FROM payments p WHERE p.quotation_id=q.id ORDER BY p.id DESC LIMIT 1) AS "paymentStatus",COALESCE((SELECT SUM(p.amount-p.refunded_amount) FROM payments p WHERE p.quotation_id=q.id AND p.status IN ('captured','partially_refunded')),0) AS "paidAmount",q.updated_at AS "updatedAt" FROM quotations q JOIN orders o ON o.id=q.order_id JOIN customers c ON c.id=o.customer_id JOIN users u ON u.id=c.user_id ${where.length ? "WHERE " + where.join(" AND ") : ""} ORDER BY q.id DESC`,
     values,
   );
   res.json({ data: rows, total: rows.length });
@@ -35,7 +35,7 @@ async function detailValue(id) {
       [row.id],
     ),
     pool().query(
-      'SELECT id,amount,status,reference,payment_type AS type,provider,created_at AS "createdAt" FROM payments WHERE quotation_id=$1 ORDER BY id DESC',
+      'SELECT id,amount,status,reference,payment_type AS type,provider,provider_order_id AS "providerOrderId",provider_payment_id AS "providerPaymentId",failure_description AS "failureDescription",attempt_count AS "attemptCount",created_at AS "createdAt",updated_at AS "updatedAt" FROM payments WHERE quotation_id=$1 ORDER BY id DESC',
       [row.id],
     ),
     pool().query(
@@ -166,6 +166,13 @@ async function update(req, res) {
     ).rows[0];
     if (!current)
       throw Object.assign(new Error("Quotation not found"), { status: 404 });
+    if (!["draft", "sent", "changes_requested"].includes(current.status))
+      throw Object.assign(
+        new Error(
+          "An approved, rejected, or cancelled quotation cannot be edited; create a revision instead",
+        ),
+        { status: 409 },
+      );
     const storedItems = (
         await client.query(
           'SELECT description,quantity,unit_price AS "unitPrice" FROM quotation_items WHERE quotation_id=$1 ORDER BY id',
@@ -176,7 +183,7 @@ async function update(req, res) {
       b = { ...current, ...req.body, items },
       amounts = totals(b);
     await client.query(
-      `UPDATE quotations SET subtotal=$2,installation=$3,transportation=$4,discount=$5,gst_rate=$6,gst=$7,final_amount=$8,terms=COALESCE($9,terms),valid_until=COALESCE($10,valid_until),status=COALESCE($11,status),updated_at=NOW() WHERE id=$1`,
+      `UPDATE quotations SET subtotal=$2,installation=$3,transportation=$4,discount=$5,gst_rate=$6,gst=$7,final_amount=$8,terms=COALESCE($9,terms),valid_until=COALESCE($10,valid_until),updated_at=NOW() WHERE id=$1`,
       [
         current.id,
         amounts.subtotal,
@@ -188,7 +195,6 @@ async function update(req, res) {
         amounts.finalAmount,
         b.terms,
         b.validUntil,
-        b.status,
       ],
     );
     await replaceItems(client, current.id, req.body.items);
@@ -232,6 +238,10 @@ async function send(req, res) {
   await pool().query(
     "UPDATE orders SET status='quotation',updated_at=NOW() WHERE id=$1",
     [rows[0].orderId],
+  );
+  await pool().query(
+    "INSERT INTO audit_logs(user_id,action,entity_type,metadata) VALUES($1,'quotation.sent','quotation',$2::jsonb)",
+    [req.user.id, JSON.stringify({ quotationNo: req.params.id })],
   );
   await require("../../services/notificationService").sendEvent(
     rows[0].user_id,

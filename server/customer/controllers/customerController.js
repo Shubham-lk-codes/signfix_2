@@ -149,19 +149,57 @@ async function deleteAccount(req, res) {
   res.json(await repo.deleteAccount(req.user.id, req.body.password, req.user));
 }
 async function createPayment(req, res) {
-  res.status(201).json(await repo.createPayment(req.user.id, req.body));
+  res
+    .status(201)
+    .json(
+      await require("../../services/paymentWorkflowService").create(
+        req.user.id,
+        req.body,
+      ),
+    );
 }
 async function payments(req, res) {
-  res.json(await repo.payments(req.user.id));
+  res.json(
+    await require("../../services/paymentWorkflowService").list(req.user.id),
+  );
 }
 async function payment(req, res) {
-  res.json(await repo.payment(req.user.id, req.params.id));
+  res.json(
+    await require("../../services/paymentWorkflowService").get(
+      req.user.id,
+      req.params.id,
+    ),
+  );
 }
 async function capturePayment(req, res) {
-  res.json(await repo.capturePayment(req.user.id, req.params.id, req.body));
+  res
+    .status(410)
+    .json({ error: "Direct capture is disabled; use provider verification" });
 }
 async function verifyPayment(req, res) {
-  res.json(await repo.verifyPayment(req.user.id, req.params.id, req.body));
+  res.json(
+    await require("../../services/paymentWorkflowService").confirm(
+      req.user.id,
+      req.params.id,
+      req.body,
+    ),
+  );
+}
+async function retryPayment(req, res) {
+  res.json(
+    await require("../../services/paymentWorkflowService").retry(
+      req.user.id,
+      req.params.id,
+    ),
+  );
+}
+async function cancelPayment(req, res) {
+  res.json(
+    await require("../../services/paymentWorkflowService").cancel(
+      req.user.id,
+      req.params.id,
+    ),
+  );
 }
 async function refundPayment(req, res) {
   res
@@ -386,6 +424,8 @@ module.exports = {
   payment,
   capturePayment,
   verifyPayment,
+  retryPayment,
+  cancelPayment,
   refundPayment,
   quotations,
   quotation,

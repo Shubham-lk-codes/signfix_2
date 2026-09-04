@@ -373,6 +373,7 @@ export default function QuotationsPage() {
                 <th>Official amount</th>
                 <th>Validity</th>
                 <th>Status</th>
+                <th>Payment</th>
                 <th>Actions</th>
               </tr>
             </thead>
@@ -388,6 +389,17 @@ export default function QuotationsPage() {
                   <td>{String(q.validUntil || "—").slice(0, 10)}</td>
                   <td>
                     <StatusBadge>{q.status}</StatusBadge>
+                  </td>
+                  <td>
+                    <StatusBadge>
+                      {q.paymentStatus || "not started"}
+                    </StatusBadge>
+                    {Number(q.paidAmount) > 0 && (
+                      <small>
+                        {" "}
+                        ₹{Number(q.paidAmount).toLocaleString("en-IN")} paid
+                      </small>
+                    )}
                   </td>
                   <td>
                     <span className="table-actions">

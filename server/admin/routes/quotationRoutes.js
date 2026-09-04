@@ -1,4 +1,42 @@
-const router=require('express').Router(),{z}=require('zod'),validate=require('../../middleware/validate'),{authenticate,authorize}=require('../../middleware/auth'),controller=require('../controllers/quotationController');
-const item=z.object({description:z.string().min(1),quantity:z.coerce.number().positive().default(1),unitPrice:z.coerce.number().nonnegative(),amount:z.coerce.number().nonnegative()});
-const quotation=z.object({orderNo:z.string().min(1).optional(),subtotal:z.coerce.number().nonnegative(),installation:z.coerce.number().nonnegative().default(0),transportation:z.coerce.number().nonnegative().default(0),discount:z.coerce.number().nonnegative().default(0),gstRate:z.coerce.number().min(0).max(100).default(18),gst:z.coerce.number().nonnegative(),finalAmount:z.coerce.number().nonnegative(),terms:z.string().max(5000).optional(),validUntil:z.coerce.date(),items:z.array(item).default([]),status:z.enum(['draft','sent','cancelled']).optional()});
-router.use(authenticate,authorize('super_admin','admin','sales_manager'));router.get('/',controller.list);router.get('/:id',controller.detail);router.post('/',validate(quotation),controller.create);router.patch('/:id',validate(quotation.omit({orderNo:true}).partial()),controller.update);router.post('/:id/send',controller.send);router.post('/:id/decision',validate(z.object({decision:z.enum(['approve','reject']),notes:z.string().max(2000).optional()})),controller.decision);module.exports=router;
+const router = require("express").Router(),
+  { z } = require("zod"),
+  validate = require("../../middleware/validate"),
+  { authenticate, authorize } = require("../../middleware/auth"),
+  controller = require("../controllers/quotationController");
+const item = z.object({
+  description: z.string().min(1),
+  quantity: z.coerce.number().positive().default(1),
+  unitPrice: z.coerce.number().nonnegative(),
+  amount: z.coerce.number().nonnegative(),
+});
+const quotation = z.object({
+  orderNo: z.string().min(1).optional(),
+  installation: z.coerce.number().nonnegative().default(0),
+  transportation: z.coerce.number().nonnegative().default(0),
+  discount: z.coerce.number().nonnegative().default(0),
+  gstRate: z.coerce.number().min(0).max(100).default(18),
+  terms: z.string().max(5000).optional(),
+  validUntil: z.coerce.date(),
+  items: z.array(item).min(1),
+});
+router.use(authenticate, authorize("super_admin", "admin", "sales_manager"));
+router.get("/", controller.list);
+router.get("/:id", controller.detail);
+router.post("/", validate(quotation), controller.create);
+router.patch(
+  "/:id",
+  validate(quotation.omit({ orderNo: true }).partial()),
+  controller.update,
+);
+router.post("/:id/send", controller.send);
+router.post(
+  "/:id/decision",
+  validate(
+    z.object({
+      decision: z.enum(["approve", "reject"]),
+      notes: z.string().max(2000).optional(),
+    }),
+  ),
+  controller.decision,
+);
+module.exports = router;

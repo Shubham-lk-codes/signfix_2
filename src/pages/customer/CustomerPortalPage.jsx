@@ -3,6 +3,7 @@ import { api, get, post } from "../../api/client";
 import StatusBadge from "../../components/ui/StatusBadge";
 import ProtectedImage from "../../components/ui/ProtectedImage";
 import ProtectedFileLink from "../../components/ui/ProtectedFileLink";
+import CustomerCommercialPage from "./CustomerCommercialPage";
 
 export default function CustomerPortalPage({ logout }) {
   const [tab, setTab] = useState("assets"),
@@ -110,8 +111,15 @@ export default function CustomerPortalPage({ logout }) {
         >
           Design requests
         </button>
+        <button
+          className={tab === "commercial" ? "active" : ""}
+          onClick={() => setTab("commercial")}
+        >
+          Quotations & payments
+        </button>
       </div>
       {error && <div className="auth-error">{error}</div>}
+      {tab === "commercial" && <CustomerCommercialPage />}
       {tab === "designs" && !selected && (
         <form className="card inline-form" onSubmit={create}>
           <label>
@@ -144,145 +152,146 @@ export default function CustomerPortalPage({ logout }) {
           </button>
         </form>
       )}
-      {selected ? (
-        <article className="card profile-section">
-          <button className="text-button" onClick={() => setSelected(null)}>
-            ← Back
-          </button>
-          <h2>{selected.assetNo || `Design request #${selected.id}`}</h2>
-          <StatusBadge>
-            {selected.status ||
-              (selected.warrantyActive
-                ? "warranty active"
-                : "warranty expired")}
-          </StatusBadge>
-          {selected.assetNo ? (
-            <>
-              <p>Order: {selected.orderNo || "—"}</p>
-              <p>
-                Installed:{" "}
-                {String(selected.installationDate || "—").slice(0, 10)}
-              </p>
-              <p>
-                Warranty: {String(selected.warrantyStart || "—").slice(0, 10)}{" "}
-                to {String(selected.warrantyUntil || "—").slice(0, 10)}
-              </p>
-              {selected.qrActive && (
-                <img
-                  width="180"
-                  src={`/api/qr/${selected.qrToken}/image`}
-                  alt="Asset QR code"
-                />
-              )}
-              <h3>Service history</h3>
-              {selected.history?.map((h) => (
-                <p key={h.id}>
-                  <b>{h.type}</b> — {h.notes}
+      {tab !== "commercial" &&
+        (selected ? (
+          <article className="card profile-section">
+            <button className="text-button" onClick={() => setSelected(null)}>
+              ← Back
+            </button>
+            <h2>{selected.assetNo || `Design request #${selected.id}`}</h2>
+            <StatusBadge>
+              {selected.status ||
+                (selected.warrantyActive
+                  ? "warranty active"
+                  : "warranty expired")}
+            </StatusBadge>
+            {selected.assetNo ? (
+              <>
+                <p>Order: {selected.orderNo || "—"}</p>
+                <p>
+                  Installed:{" "}
+                  {String(selected.installationDate || "—").slice(0, 10)}
                 </p>
-              ))}
-            </>
-          ) : (
-            <>
-              <p>
-                Concept/mockup only; an approved concept is not an official
-                quotation.
-              </p>
-              {!!selected.files?.length && (
-                <div className="design-file-list">
-                  <h3>Your reference files</h3>
-                  {selected.files.map((file) => (
-                    <ProtectedFileLink href={file.url} key={file.id}>
-                      {file.name}
-                    </ProtectedFileLink>
+                <p>
+                  Warranty: {String(selected.warrantyStart || "—").slice(0, 10)}{" "}
+                  to {String(selected.warrantyUntil || "—").slice(0, 10)}
+                </p>
+                {selected.qrActive && (
+                  <img
+                    width="180"
+                    src={`/api/qr/${selected.qrToken}/image`}
+                    alt="Asset QR code"
+                  />
+                )}
+                <h3>Service history</h3>
+                {selected.history?.map((h) => (
+                  <p key={h.id}>
+                    <b>{h.type}</b> — {h.notes}
+                  </p>
+                ))}
+              </>
+            ) : (
+              <>
+                <p>
+                  Concept/mockup only; an approved concept is not an official
+                  quotation.
+                </p>
+                {!!selected.files?.length && (
+                  <div className="design-file-list">
+                    <h3>Your reference files</h3>
+                    {selected.files.map((file) => (
+                      <ProtectedFileLink href={file.url} key={file.id}>
+                        {file.name}
+                      </ProtectedFileLink>
+                    ))}
+                  </div>
+                )}
+                <div className="ticket-photos">
+                  {selected.concepts?.map((c) => (
+                    <figure key={c.id}>
+                      <ProtectedImage src={c.imageUrl} alt="Design concept" />
+                      <figcaption>
+                        <StatusBadge>{c.status}</StatusBadge>
+                        <button
+                          className="primary"
+                          disabled={busy}
+                          onClick={() => action("approve", c.id)}
+                        >
+                          Approve
+                        </button>
+                        <button
+                          className="outline"
+                          disabled={busy}
+                          onClick={() => action("reject", c.id)}
+                        >
+                          Reject
+                        </button>
+                      </figcaption>
+                    </figure>
                   ))}
                 </div>
-              )}
-              <div className="ticket-photos">
-                {selected.concepts?.map((c) => (
-                  <figure key={c.id}>
-                    <ProtectedImage src={c.imageUrl} alt="Design concept" />
-                    <figcaption>
-                      <StatusBadge>{c.status}</StatusBadge>
-                      <button
-                        className="primary"
-                        disabled={busy}
-                        onClick={() => action("approve", c.id)}
-                      >
-                        Approve
-                      </button>
-                      <button
-                        className="outline"
-                        disabled={busy}
-                        onClick={() => action("reject", c.id)}
-                      >
-                        Reject
-                      </button>
-                    </figcaption>
-                  </figure>
-                ))}
-              </div>
-              <label>
-                Review comments
-                <textarea
-                  id="customer-design-notes"
-                  rows="3"
-                  maxLength="2000"
-                  placeholder="Tell the design team what to change or why you approve."
-                />
-              </label>
-              <button
-                className="outline"
-                disabled={busy}
-                onClick={() => action("request_modification")}
-              >
-                Request changes
-              </button>
-            </>
-          )}
-        </article>
-      ) : (
-        <article className="tablecard card">
-          <table>
-            <thead>
-              <tr>
-                <th>ID</th>
-                <th>Order</th>
-                <th>Status</th>
-                <th>Warranty / concepts</th>
-                <th />
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row) => (
-                <tr key={row.assetNo || row.id}>
-                  <td>{row.assetNo || `#${row.id}`}</td>
-                  <td>{row.orderNo || "—"}</td>
-                  <td>
-                    <StatusBadge>{row.status}</StatusBadge>
-                  </td>
-                  <td>
-                    {tab === "assets"
-                      ? row.warrantyActive
-                        ? "Active"
-                        : "Expired"
-                      : `${row.conceptCount} concepts`}
-                  </td>
-                  <td>
-                    <button className="outline" onClick={() => open(row)}>
-                      View
-                    </button>
-                  </td>
-                </tr>
-              ))}
-              {!rows.length && (
+                <label>
+                  Review comments
+                  <textarea
+                    id="customer-design-notes"
+                    rows="3"
+                    maxLength="2000"
+                    placeholder="Tell the design team what to change or why you approve."
+                  />
+                </label>
+                <button
+                  className="outline"
+                  disabled={busy}
+                  onClick={() => action("request_modification")}
+                >
+                  Request changes
+                </button>
+              </>
+            )}
+          </article>
+        ) : (
+          <article className="tablecard card">
+            <table>
+              <thead>
                 <tr>
-                  <td colSpan="5">No records found.</td>
+                  <th>ID</th>
+                  <th>Order</th>
+                  <th>Status</th>
+                  <th>Warranty / concepts</th>
+                  <th />
                 </tr>
-              )}
-            </tbody>
-          </table>
-        </article>
-      )}
+              </thead>
+              <tbody>
+                {rows.map((row) => (
+                  <tr key={row.assetNo || row.id}>
+                    <td>{row.assetNo || `#${row.id}`}</td>
+                    <td>{row.orderNo || "—"}</td>
+                    <td>
+                      <StatusBadge>{row.status}</StatusBadge>
+                    </td>
+                    <td>
+                      {tab === "assets"
+                        ? row.warrantyActive
+                          ? "Active"
+                          : "Expired"
+                        : `${row.conceptCount} concepts`}
+                    </td>
+                    <td>
+                      <button className="outline" onClick={() => open(row)}>
+                        View
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+                {!rows.length && (
+                  <tr>
+                    <td colSpan="5">No records found.</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </article>
+        ))}
     </section>
   );
 }
