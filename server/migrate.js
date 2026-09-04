@@ -9,7 +9,17 @@ async function migrate() {
   const schemaPath = path.join(__dirname, '..', 'database', 'schema.sql');
   const schema = await fs.readFile(schemaPath, 'utf8');
   const checksum = crypto.createHash('sha256').update(schema).digest('hex');
-  const client = await database.getPool().connect();
+  let client, retries = 3;
+  while (retries > 0) {
+    try {
+      client = await database.getPool().connect();
+      break;
+    } catch (e) {
+      retries -= 1;
+      if (retries === 0) throw e;
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+    }
+  }
   try {
     // Only one instance migrates, and an unchanged schema does no DDL work on
     // subsequent starts. This matters for cold starts on hosted Postgres.
