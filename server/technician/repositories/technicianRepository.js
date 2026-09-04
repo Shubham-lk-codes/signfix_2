@@ -65,7 +65,7 @@ async function getJob(id,user) {
   if(!rows[0]) return null;
   const [history,photos,materials,services]=await Promise.all([
     pool().query(`SELECT status,notes,created_at AS "createdAt" FROM job_status_history WHERE job_id=$1 ORDER BY created_at`,[id]),
-    pool().query(`SELECT id,photo_type AS type,photo_category AS category,storage_key AS url,mime_type AS "mimeType",created_at AS "createdAt" FROM job_photos WHERE job_id=$1 ORDER BY created_at`,[id]),
+    pool().query(`SELECT id,photo_type AS type,photo_category AS category,CASE WHEN storage_key LIKE '/api/%' THEN storage_key WHEN storage_key LIKE '/uploads/%' THEN '/api'||storage_key ELSE '/api/uploads/'||storage_key END AS url,mime_type AS "mimeType",created_at AS "createdAt" FROM job_photos WHERE job_id=$1 ORDER BY created_at`,[id]),
     pool().query(`SELECT id,name,quantity,unit,notes,created_at AS "createdAt" FROM job_materials WHERE job_id=$1 ORDER BY id`,[id]),
     rows[0].assetId ? pool().query(`SELECT st.ticket_no AS "ticketNo",st.category,st.description,tj.status,tj.closed_at AS "closedAt" FROM service_tickets st LEFT JOIN technician_jobs tj ON tj.ticket_id=st.id WHERE st.asset_id=$1 AND st.id<>$2 ORDER BY st.created_at DESC LIMIT 20`,[rows[0].assetId,rows[0].ticket_id]) : {rows:[]}
   ]);
@@ -76,7 +76,7 @@ async function getJob(id,user) {
 
 async function lockOwnedJob(client,id,user) {
   const values=[id];let owner='';if(user.role==='technician'){values.push(user.id);owner=' AND t.user_id=$2';}
-  const {rows}=await client.query(`SELECT j.*,t.user_id AS technician_user_id,c.user_id AS customer_user_id,s.ticket_no FROM technician_jobs j JOIN technicians t ON t.id=j.technician_id JOIN service_tickets s ON s.id=j.ticket_id JOIN customers c ON c.id=s.customer_id WHERE j.id=$1${owner} FOR UPDATE OF j`,values);
+  const {rows}=await client.query(`SELECT j.*,t.user_id AS technician_user_id,c.user_id AS customer_user_id,s.ticket_no,s.asset_id FROM technician_jobs j JOIN technicians t ON t.id=j.technician_id JOIN service_tickets s ON s.id=j.ticket_id JOIN customers c ON c.id=s.customer_id WHERE j.id=$1${owner} FOR UPDATE OF j`,values);
   return rows[0];
 }
 

@@ -24,11 +24,13 @@ export default function AssetsPage() {
     const f = Object.fromEntries(new FormData(e.currentTarget));
     await post("/api/admin/operations/assets", {
       customerId: Number(f.customerId),
+      orderNo: f.orderNo || undefined,
       location: { address: f.location },
       signType: f.signType,
       size: f.size,
       material: f.material,
       installationDate: f.installationDate,
+      warrantyStart: f.warrantyStart || f.installationDate,
       warrantyUntil: f.warrantyUntil || undefined,
       photos: f.photos
         .split(",")
@@ -45,6 +47,11 @@ export default function AssetsPage() {
     setAsset(await get(`/api/admin/operations/assets/${asset.assetNo}`));
     e.currentTarget.reset();
   }
+  async function qr(action) {
+    if(action === "rotate" && !confirm("Rotate this QR code? The previous code will stop working.")) return;
+    await post(`/api/admin/operations/assets/${asset.assetNo}/qr`, { action });
+    await open(asset.assetNo);
+  }
   if (asset)
     return (
       <section className="content">
@@ -60,6 +67,8 @@ export default function AssetsPage() {
           <div className="asset-qr">
             <img src={`/api/qr/${asset.qrToken}/image`} alt={`QR code for ${asset.assetNo}`} />
             <a className="outline" href={`/asset/scan/${asset.qrToken}`} target="_blank" rel="noreferrer"><QrCode size={16}/>Verify QR</a>
+            <button className="outline" onClick={() => qr("rotate")}>Rotate QR</button>
+            <button className="outline" onClick={() => qr(asset.qrActive ? "disable" : "enable")}>{asset.qrActive ? "Disable" : "Enable"} QR</button>
           </div>
         </div>
         <div className="customer-summary">
@@ -82,6 +91,9 @@ export default function AssetsPage() {
               <b>Warranty</b>
               <span>{String(asset.warrantyUntil || "—").slice(0, 10)}</span>
             </p>
+            <p><b>Order</b><span>{asset.orderNo || "—"}</span></p>
+            <p><b>Asset status</b><span><StatusBadge>{asset.status}</StatusBadge></span></p>
+            <p><b>Warranty start</b><span>{String(asset.warrantyStart || "—").slice(0, 10)}</span></p>
             <p>
               <b>Location</b>
               <span>{asset.location?.address}</span>
@@ -151,10 +163,12 @@ export default function AssetsPage() {
           </label>
           {[
             ["location", "Location"],
+            ["orderNo", "Order number"],
             ["signType", "Sign type"],
             ["size", "Size"],
             ["material", "Material"],
             ["installationDate", "Installation date", "date"],
+            ["warrantyStart", "Warranty start", "date"],
             ["warrantyUntil", "Warranty until", "date"],
             ["photos", "Photo URLs (comma separated)"],
           ].map(([n, l, t = "text"]) => (
@@ -163,7 +177,7 @@ export default function AssetsPage() {
               <input
                 name={n}
                 type={t}
-                required={!["warrantyUntil", "photos"].includes(n)}
+                required={!["orderNo", "warrantyStart", "warrantyUntil", "photos"].includes(n)}
               />
             </label>
           ))}

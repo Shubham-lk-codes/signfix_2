@@ -14,6 +14,7 @@ const QuotationsPage = lazy(() => import('../../pages/admin/QuotationsPage'));
 const ServicesPage = lazy(() => import('../../pages/admin/ServicesPage'));
 const TechniciansPage = lazy(() => import('../../pages/admin/TechniciansPage'));
 const AssetsPage = lazy(() => import('../../pages/admin/AssetsPage'));
+const DesignRequestsPage = lazy(() => import('../../pages/admin/DesignRequestsPage'));
 const AIManagementPage = lazy(() => import('../../pages/admin/AIManagementPage'));
 const SettingsPage = lazy(() => import('../../pages/admin/SettingsPage'));
 
@@ -28,6 +29,7 @@ export default function AdminRouter({ path, navigate }) {
     : path === '/services' ? <ServicesPage />
     : path === '/technicians' ? <TechniciansPage />
     : path === '/assets' ? <AssetsPage />
+    : path === '/design-requests' ? <DesignRequestsPage />
     : path === '/ai-management' ? <AIManagementPage />
     : path === '/settings' ? <SettingsPage />
     : path === '/roles' || path === '/permissions' ? <SettingsPage initialTab="access" />

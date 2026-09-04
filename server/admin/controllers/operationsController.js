@@ -1,6 +1,7 @@
 const db = require("../../database"),
   bcrypt = require("bcryptjs"),
   crypto = require("crypto");
+const { businessId } = require("../../utils/ids");
 const pool = () => db.getPool();
 async function tickets(req, res) {
   const p = [],
@@ -240,28 +241,35 @@ async function technicianValue(id) {
 }
 async function assets(req, res) {
   const { rows } = await pool().query(
-    `SELECT a.asset_no AS "assetNo",u.name AS customer,a.location,a.details->>'signType' AS "signType",a.details->>'size' AS size,a.installation_date AS "installationDate",a.warranty_until AS "warrantyUntil",a.created_at AS "createdAt" FROM sign_board_assets a JOIN customers c ON c.id=a.customer_id JOIN users u ON u.id=c.user_id ORDER BY a.id DESC`,
+    `SELECT a.asset_no AS "assetNo",u.name AS customer,o.order_no AS "orderNo",a.location,a.details->>'signType' AS "signType",a.details->>'size' AS size,a.installation_date AS "installationDate",a.warranty_start AS "warrantyStart",a.warranty_until AS "warrantyUntil",a.status,a.created_at AS "createdAt" FROM sign_board_assets a JOIN customers c ON c.id=a.customer_id JOIN users u ON u.id=c.user_id LEFT JOIN orders o ON o.id=a.order_id ORDER BY a.id DESC`,
   );
   res.json({ data: rows, total: rows.length });
 }
 async function createAsset(req, res) {
-  const no = `SB-${crypto.randomInt(10000, 99999)}`,
+  const no = businessId("SB-AST"),
     token = crypto.randomBytes(32).toString("hex"),
     b = req.body,
     details = { signType: b.signType, size: b.size, material: b.material },
     client = await pool().connect();
   try {
     await client.query("BEGIN");
+    let orderId=null;
+    if(b.orderNo){const order=(await client.query('SELECT id FROM orders WHERE order_no=$1 AND customer_id=$2',[b.orderNo,b.customerId])).rows[0];if(!order)throw Object.assign(new Error('Order does not belong to the selected customer'),{status:422});orderId=order.id;}
+    const warrantyStart=b.warrantyStart||b.installationDate;
+    if(b.warrantyUntil&&new Date(b.warrantyUntil)<new Date(warrantyStart))throw Object.assign(new Error('Warranty expiry must be on or after the warranty start date'),{status:422});
     const row = (
       await client.query(
-        'INSERT INTO sign_board_assets(asset_no,customer_id,details,location,installation_date,warranty_until,photos,qr_token) VALUES($1,$2,$3::jsonb,$4::jsonb,$5,$6,$7::jsonb,$8) RETURNING id,asset_no AS "assetNo",qr_token AS "qrToken"',
+        'INSERT INTO sign_board_assets(asset_no,customer_id,order_id,details,location,installation_date,warranty_start,warranty_until,status,photos,qr_token) VALUES($1,$2,$3,$4::jsonb,$5::jsonb,$6,$7,$8,$9,$10::jsonb,$11) RETURNING id,asset_no AS "assetNo",qr_token AS "qrToken",status',
         [
           no,
           b.customerId,
+          orderId,
           JSON.stringify(details),
           JSON.stringify(b.location),
           b.installationDate,
+          warrantyStart,
           b.warrantyUntil,
+          b.status||'active',
           JSON.stringify(b.photos),
           token,
         ],
@@ -271,6 +279,7 @@ async function createAsset(req, res) {
       "INSERT INTO qr_codes(asset_id,token,active) VALUES($1,$2,TRUE)",
       [row.id, token],
     );
+    await client.query("INSERT INTO audit_logs(user_id,action,entity_type,entity_id,metadata) VALUES($1,'asset.created','sign_board_asset',$2,$3::jsonb)",[req.user.id,row.id,JSON.stringify({assetNo:no,customerId:b.customerId,orderNo:b.orderNo||null})]);
     await client.query("COMMIT");
     delete row.id;
     res.status(201).json(row);
@@ -295,13 +304,15 @@ async function asset(req, res) {
       [row.id],
     )
   ).rows;
+  const extra=(await pool().query('SELECT a.warranty_start AS "warrantyStart",a.status,o.order_no AS "orderNo",q.active AS "qrActive" FROM sign_board_assets a LEFT JOIN orders o ON o.id=a.order_id LEFT JOIN qr_codes q ON q.asset_id=a.id WHERE a.id=$1',[row.id])).rows[0];
+  Object.assign(row,extra,{warrantyActive:Boolean(extra&&row.warrantyUntil&&new Date(row.warrantyUntil)>=new Date()&&extra.status!=='retired')});
   res.json(row);
 }
 async function updateAsset(req, res) {
   const b = req.body,
     details = { signType: b.signType, size: b.size, material: b.material };
   const { rows } = await pool().query(
-    'UPDATE sign_board_assets SET location=COALESCE($2::jsonb,location),details=details||$3::jsonb,installation_date=COALESCE($4,installation_date),warranty_until=COALESCE($5,warranty_until),photos=COALESCE($6::jsonb,photos) WHERE asset_no=$1 RETURNING asset_no AS "assetNo"',
+    'UPDATE sign_board_assets SET location=COALESCE($2::jsonb,location),details=details||$3::jsonb,installation_date=COALESCE($4,installation_date),warranty_start=COALESCE($5,warranty_start),warranty_until=COALESCE($6,warranty_until),status=COALESCE($7,status),photos=COALESCE($8::jsonb,photos) WHERE asset_no=$1 RETURNING asset_no AS "assetNo"',
     [
       req.params.id,
       b.location ? JSON.stringify(b.location) : null,
@@ -311,7 +322,9 @@ async function updateAsset(req, res) {
         ),
       ),
       b.installationDate,
+      b.warrantyStart,
       b.warrantyUntil,
+      b.status,
       b.photos ? JSON.stringify(b.photos) : null,
     ],
   );
@@ -319,6 +332,7 @@ async function updateAsset(req, res) {
     throw Object.assign(new Error("Asset not found"), { status: 404 });
   res.json(rows[0]);
 }
+async function updateAssetQr(req,res){const client=await pool().connect();try{await client.query('BEGIN');const asset=(await client.query('SELECT id,qr_token FROM sign_board_assets WHERE asset_no=$1 FOR UPDATE',[req.params.id])).rows[0];if(!asset)throw Object.assign(new Error('Asset not found'),{status:404});let token=asset.qr_token;if(req.body.action==='rotate'){token=crypto.randomBytes(32).toString('hex');await client.query('UPDATE sign_board_assets SET qr_token=$2 WHERE id=$1',[asset.id,token]);await client.query('INSERT INTO qr_codes(asset_id,token,active) VALUES($1,$2,TRUE) ON CONFLICT(asset_id) DO UPDATE SET token=EXCLUDED.token,active=TRUE,created_at=NOW()',[asset.id,token]);}else await client.query('UPDATE qr_codes SET active=$2 WHERE asset_id=$1',[asset.id,req.body.action==='enable']);await client.query("INSERT INTO audit_logs(user_id,action,entity_type,entity_id,metadata) VALUES($1,$2,'sign_board_asset',$3,$4::jsonb)",[req.user.id,`asset.qr.${req.body.action}`,asset.id,JSON.stringify({assetNo:req.params.id})]);await client.query('COMMIT');res.json({assetNo:req.params.id,qrToken:token,qrActive:req.body.action!=='disable'});}catch(e){await client.query('ROLLBACK');throw e;}finally{client.release();}}
 async function addAssetHistory(req, res) {
   const asset = (
     await pool().query("SELECT id FROM sign_board_assets WHERE asset_no=$1", [
@@ -345,5 +359,6 @@ module.exports = {
   createAsset,
   asset,
   updateAsset,
+  updateAssetQr,
   addAssetHistory,
 };
