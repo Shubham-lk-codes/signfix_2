@@ -13,8 +13,9 @@ function isCorsOriginAllowed(origin) {
   if (corsOrigins.includes(normalized)) return true;
   try {
     const url = new URL(normalized);
-    // Local Flutter web clients must be able to use the deployed API too.
-    if (['http:', 'https:'].includes(url.protocol) && ['localhost', '127.0.0.1', '::1'].includes(url.hostname)) return true;
+    // Local browser clients are convenient in development, but production
+    // browser origins must be explicitly listed in CORS_ORIGIN.
+    if (process.env.NODE_ENV !== 'production' && ['http:', 'https:'].includes(url.protocol) && ['localhost', '127.0.0.1', '::1'].includes(url.hostname)) return true;
   } catch (_) {
     return false;
   }
@@ -23,6 +24,7 @@ function isCorsOriginAllowed(origin) {
 
 module.exports = {
   port: Number(process.env.PORT || 4000),
+  host: process.env.HOST || (process.env.NODE_ENV === 'production' ? '127.0.0.1' : '0.0.0.0'),
   jwtSecret: process.env.JWT_SECRET || 'development-only-change-me',
   jwtIssuer: process.env.JWT_ISSUER || 'signfix-api',
   jwtAudience: process.env.JWT_AUDIENCE || 'signfix-web',

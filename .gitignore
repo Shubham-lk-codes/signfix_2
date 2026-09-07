@@ -1,6 +1,8 @@
 node_modules/
 dist/
 .env
+.env.*
+!.env.example
 server/uploads/*
 !server/uploads/.gitkeep
 .dart_tool/
@@ -11,3 +13,5 @@ build/
 *.iml
 .DS_Store
 *.log
+.pm2/
+npm-debug.log*

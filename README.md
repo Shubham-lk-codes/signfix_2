@@ -12,6 +12,7 @@ Sign board sales, service, maintenance and field-operations platform by **DL SSR
 npm install
 npm run dev       # starts React at :5173 and the API at :4000 together
 npm run server    # starts only the API at http://localhost:4000
+npm start         # production API/admin server (run npm run build first)
 ```
 
 Demo accounts use `SignFix@123`: `customer@signfix.in`, `tech@signfix.in`, and `admin@signfix.in`.
@@ -56,13 +57,13 @@ Never commit `.env` or use the demo credentials in production.
 
 ## Production deployment
 
-- Vercel builds with `.env.production`, so browser API requests go to `https://signfix-2.onrender.com`.
-- Render uses `render.yaml`. Add `DATABASE_URL` in the Render service environment; it is intentionally not stored in Git.
+The production Vite build is emitted to `dist/admin` with asset URLs rooted at
+`/admin/`. Express serves that build (including SPA fallbacks) and the API from a
+single localhost-only process. See [`docs/production-deployment.md`](docs/production-deployment.md)
+for PM2, environment, reverse-proxy, SSL-preservation, and validation commands.
 
 ### Razorpay payments
 
 Set `PAYMENT_GATEWAY_ENABLED=true`, `PAYMENT_GATEWAY_PROVIDER=razorpay`, and provide test/live values for `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, and `RAZORPAY_WEBHOOK_SECRET`. Configure the Razorpay webhook URL as `https://<your-host>/api/payments/webhook` and subscribe to `payment.authorized`, `payment.captured`, and `payment.failed`. Use Razorpay Test Mode keys and its separate Test Mode webhook while validating the workflow; credentials must remain in environment variables.
 
 Only a captured transaction whose provider order, amount, currency, and signature match the stored payment can advance an accepted order to production. Calculator estimates are never read by payment creation.
-- Render allows both `https://signfix-2.vercel.app` and the local Vite origin through `CORS_ORIGIN`.
-- Redeploy both services after pushing configuration changes.

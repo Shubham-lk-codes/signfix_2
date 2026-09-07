@@ -1,2 +1,23 @@
 import { useEffect, useState } from 'react';
-export default function useRoute() { const [path, setPath] = useState(window.location.pathname); useEffect(() => { const listener = () => setPath(window.location.pathname); addEventListener('popstate', listener); return () => removeEventListener('popstate', listener); }, []); const navigate = (next) => { history.pushState({}, '', next); setPath(next); }; return { path, navigate }; }
+
+const adminBase = '/admin';
+function appPath() {
+  const pathname = window.location.pathname;
+  if (pathname === adminBase || pathname === `${adminBase}/`) return '/';
+  return pathname.startsWith(`${adminBase}/`) ? pathname.slice(adminBase.length) : pathname;
+}
+
+export default function useRoute() {
+  const [path, setPath] = useState(appPath);
+  useEffect(() => {
+    const listener = () => setPath(appPath());
+    addEventListener('popstate', listener);
+    return () => removeEventListener('popstate', listener);
+  }, []);
+  const navigate = (next) => {
+    const target = window.location.pathname.startsWith(adminBase) ? `${adminBase}${next === '/' ? '' : next}` : next;
+    history.pushState({}, '', target);
+    setPath(next);
+  };
+  return { path, navigate };
+}
