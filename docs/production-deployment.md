@@ -80,9 +80,11 @@ ProxyPassReverse / http://127.0.0.1:5000/
 
 Validate with `apachectl configtest` before reloading Apache. On shared hosting
 where virtual-host changes are unavailable, configure the equivalent proxy in
-cPanel's Node.js Application/Passenger UI and use `server/index.js` as the entry
-point. Do not add an `.htaccess` proxy until the provider confirms `mod_proxy` is
-allowed.
+cPanel's Node.js Application/Passenger UI and use `app.js` as the entry point.
+It exports the Express application for Passenger and replaces the generated
+cPanel page that says `It works! NodeJS ...`. Run `npm run build` after every
+upload because `dist/admin` is generated and intentionally not committed. Do not
+add an `.htaccess` proxy until the provider confirms `mod_proxy` is allowed.
 
 ## Validation
 
