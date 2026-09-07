@@ -1,6 +1,10 @@
 const path = require('path');
-require('dotenv').config({ path: path.resolve(__dirname, '../../.env') });
-if(process.env.NODE_ENV==='production'&&(!process.env.JWT_SECRET||process.env.JWT_SECRET.length<32))throw new Error('JWT_SECRET must contain at least 32 characters in production');
+require('dotenv').config({ path: path.resolve(__dirname, '../../.env'), quiet: true });
+
+if (process.env.NODE_ENV === 'production') {
+  if (!process.env.DATABASE_URL) throw new Error('DATABASE_URL is required in production');
+  if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 32) throw new Error('JWT_SECRET must contain at least 32 characters in production');
+}
 
 const corsOrigins = (process.env.CORS_ORIGIN || 'http://localhost:5173').split(',').map((value) => value.trim().replace(/\/$/, '')).filter(Boolean);
 function isCorsOriginAllowed(origin) {

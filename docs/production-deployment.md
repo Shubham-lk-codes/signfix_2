@@ -43,6 +43,11 @@ Run the command printed by `pm2 startup` with the privileges requested by PM2,
 then run `pm2 save` once more. The process name is `signfix-api`. Diagnose it with
 `pm2 status`, `pm2 logs signfix-api --lines 200`, and `pm2 describe signfix-api`.
 
+The production process deliberately refuses to start when `DATABASE_URL`, a
+32-character `JWT_SECRET`, or `dist/admin/index.html` is missing. Check
+`pm2 logs signfix-api --lines 200` (or the cPanel application log) when the
+public web server reports 503.
+
 ## Reverse proxy
 
 First identify the active server (`ps aux | grep -E 'nginx|apache|httpd|lshttpd'`)
@@ -78,13 +83,21 @@ ProxyPass        / http://127.0.0.1:5000/
 ProxyPassReverse / http://127.0.0.1:5000/
 ```
 
-Validate with `apachectl configtest` before reloading Apache. On shared hosting
-where virtual-host changes are unavailable, configure the equivalent proxy in
-cPanel's Node.js Application/Passenger UI and use `app.js` as the entry point.
-It exports the Express application for Passenger and replaces the generated
-cPanel page that says `It works! NodeJS ...`. Run `npm run build` after every
-upload because `dist/admin` is generated and intentionally not committed. Do not
-add an `.htaccess` proxy until the provider confirms `mod_proxy` is allowed.
+Validate with `apachectl configtest` before reloading Apache. On LiteSpeed/shared
+hosting where virtual-host changes are unavailable, use cPanel's **Setup Node.js
+App** / Passenger integration: set the application root to
+`repositories/signfix_2`, the application URL to `https://signfix.me`, the
+startup file to `app.js`, and `NODE_ENV=production`. Passenger owns the listener
+in this mode, so `HOST`, `PORT`, PM2, and a reverse-proxy rule are not used. Use
+either Passenger or PM2 for the public application, never both. Configure PM2
+only when the host provides SSH and an editable LiteSpeed external-app/proxy
+mapping to `127.0.0.1:5000`.
+
+The `app.js` entry point exports the Express application for Passenger and
+replaces the generated cPanel page that says `It works! NodeJS ...`. Run
+`npm run build` after every upload because `dist/admin` is generated and
+intentionally not committed. Do not add an `.htaccess` proxy until the provider
+confirms that proxy directives are allowed.
 
 ## Validation
 

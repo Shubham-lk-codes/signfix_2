@@ -23,13 +23,17 @@ app.use('/api', routes);
 app.get('/', (_req, res) => res.json({ name: 'SignFix API', status: 'ok', health: '/api/health' }));
 if (process.env.NODE_ENV === 'production') {
   const adminBuild = path.resolve(__dirname, '../dist/admin');
+  const adminIndex = path.join(adminBuild, 'index.html');
+  if (!fs.existsSync(adminIndex)) {
+    throw new Error(`Admin production build is missing at ${adminIndex}; run npm run build before starting the server`);
+  }
   app.use('/admin', express.static(adminBuild, { index: false, maxAge: '1y', immutable: true }));
   app.get(['/admin', '/admin/*path'], (_req, res, next) => {
-    res.sendFile(path.join(adminBuild, 'index.html'), (error) => error && next(error));
+    res.sendFile(adminIndex, (error) => error && next(error));
   });
   // Preserve existing public QR links while the admin bundle is hosted below /admin.
   app.get('/asset/scan/:token', (_req, res, next) => {
-    res.sendFile(path.join(adminBuild, 'index.html'), (error) => error && next(error));
+    res.sendFile(adminIndex, (error) => error && next(error));
   });
 }
 app.use(notFound);
