@@ -2,7 +2,7 @@ const router = require("express").Router();
 const { z } = require("zod");
 const controller = require("../controllers/customerController");
 const validate = require("../../middleware/validate");
-const { authenticate, authorize } = require("../../middleware/auth");
+const { authenticate, authorize, permit } = require("../../middleware/auth");
 const designUpload = require("../middleware/designUpload");
 router.use(authenticate, authorize("customer"));
 
@@ -65,19 +65,40 @@ router.post(
   validate(z.object({ reason: z.string().min(3).max(1000) })),
   controller.cancelOrder,
 );
-router.get("/quotations", controller.quotations);
-router.get("/quotations/:id", controller.quotation);
+router.get("/quotations", permit("quotation.view_own"), controller.quotations);
+router.get("/quotations/:id", permit("quotation.view_own"), controller.quotation);
+router.post(
+  "/quotations/:id/approve",
+  permit("quotation.approve_own"),
+  validate(z.object({ comment: z.string().trim().max(1000).optional() })),
+  controller.approveQuotation,
+);
+router.post(
+  "/quotations/:id/request-changes",
+  permit("quotation.request_changes_own"),
+  validate(z.object({ comment: z.string().trim().min(3).max(2000) })),
+  controller.requestQuotationChanges,
+);
+router.post(
+  "/quotations/:id/reject",
+  permit("quotation.reject_own"),
+  validate(z.object({ reason: z.string().trim().min(3).max(2000) })),
+  controller.rejectQuotation,
+);
 router.post(
   "/quotations/:id/action",
   validate(
     z.object({
-      action: z.enum(["approve", "request_changes"]),
-      notes: z.string().max(1000).optional(),
+      action: z.enum(["approve", "request_changes", "reject"]),
+      notes: z.string().trim().max(2000).optional(),
+    }).superRefine((value, context) => {
+      if (["request_changes", "reject"].includes(value.action) && !value.notes) context.addIssue({ code: "custom", path: ["notes"], message: "Notes are required for this action" });
     }),
   ),
+  permit((req) => ({ approve: "quotation.approve_own", request_changes: "quotation.request_changes_own", reject: "quotation.reject_own" })[req.body.action]),
   controller.quotationAction,
 );
-router.get("/quotations/:id/pdf", controller.quotationPdf);
+router.get("/quotations/:id/pdf", permit("quotation.download_own"), controller.quotationPdf);
 router.get("/services/:id/tracking", controller.serviceTracking);
 router.post(
   "/services/:id/cancel",

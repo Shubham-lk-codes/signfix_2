@@ -64,12 +64,14 @@ These endpoints store concept workflow data. Connect an image-generation provide
 
 | Method | Endpoint | Purpose |
 |---|---|---|
-| GET | `/customer/quotations` | List owned quotations |
+| GET | `/customer/quotations?page=1&pageSize=20&status=sent` | Paginated owned quotations |
 | GET | `/customer/quotations/:quotationNo` | Quotation detail |
-| POST | `/customer/quotations/:quotationNo/action` | `approve` or `request_changes` with optional notes; only valid for a sent, unexpired quotation |
+| POST | `/customer/quotations/:quotationNo/approve` | Approve a sent/viewed, unexpired quotation |
+| POST | `/customer/quotations/:quotationNo/request-changes` | Request changes with required `comment` |
+| POST | `/customer/quotations/:quotationNo/reject` | Reject with required `reason` |
 | GET | `/customer/quotations/:quotationNo/pdf` | Download PDF |
 
-Draft and cancelled quotations are never exposed to customers. Detail responses include line items, quantity, all price components, `availableActions`, and payment capability metadata.
+Draft quotations are never exposed to customers. Sent, viewed, change-requested, approved, rejected, expired, and cancelled quotations remain available as customer-owned read-only records where appropriate. Detail responses include line items, quantity, all price components, `availableActions`, PDF availability, and payment capability metadata. The legacy `POST /customer/quotations/:quotationNo/action` route remains available for the existing customer frontend.
 
 ## Payments
 

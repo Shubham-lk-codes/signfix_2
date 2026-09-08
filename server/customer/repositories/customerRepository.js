@@ -26,7 +26,7 @@ async function dashboard(userId) {
       `SELECT
     (SELECT row_to_json(x) FROM (SELECT order_no AS id,status,estimated_price AS "estimatedPrice",created_at AS "createdAt" FROM orders WHERE customer_id=$1 AND status ${activeOrder} ORDER BY created_at DESC LIMIT 1) x) AS "activeOrder",
     (SELECT row_to_json(x) FROM (SELECT ticket_no AS id,status,category,created_at AS "createdAt" FROM service_tickets WHERE customer_id=$1 AND status ${activeService} ORDER BY created_at DESC LIMIT 1) x) AS "activeService",
-    (SELECT row_to_json(x) FROM (SELECT q.quotation_no AS "quotationNo",o.order_no AS "orderNo",q.final_amount AS "finalAmount",q.status,q.valid_until AS "validUntil" FROM quotations q JOIN orders o ON o.id=q.order_id WHERE o.customer_id=$1 ORDER BY q.id DESC LIMIT 1) x) AS "recentQuotation",
+    (SELECT row_to_json(x) FROM (SELECT q.quotation_no AS "quotationNo",o.order_no AS "orderNo",q.final_amount AS "finalAmount",q.status,q.valid_until AS "validUntil" FROM quotations q JOIN orders o ON o.id=q.order_id WHERE o.customer_id=$1 AND q.status IN ('sent','viewed','change_requested','approved','rejected','expired','cancelled') ORDER BY q.id DESC LIMIT 1) x) AS "recentQuotation",
     (SELECT COUNT(*)::int FROM orders WHERE customer_id=$1) AS "orderCount",
     (SELECT COUNT(*)::int FROM service_tickets WHERE customer_id=$1) AS "serviceCount",
     (SELECT COUNT(*)::int FROM notifications WHERE user_id=$2 AND read_at IS NULL) AS "unreadNotifications"`,
@@ -359,24 +359,53 @@ async function order(userId, orderNo) {
   return { ...rows[0], ...rows[0].specifications };
 }
 async function cancelOrder(userId, orderNo, reason) {
-  const { rows } = await pool().query(
-    `UPDATE orders o SET status='cancelled',updated_at=NOW(),specifications=o.specifications||jsonb_build_object('cancellationReason',$3::text,'cancelledAt',NOW()) FROM customers c WHERE o.customer_id=c.id AND c.user_id=$1 AND o.order_no=$2 AND o.status IN ('new','under_review','quotation') RETURNING o.order_no AS id,o.status`,
-    [userId, orderNo, reason],
-  );
-  if (!rows[0])
-    throw Object.assign(
-      new Error("Order not found or can no longer be cancelled"),
-      { status: 409 },
+  const client = await pool().connect();
+  try {
+    await client.query("BEGIN");
+    const { rows } = await client.query(
+      `UPDATE orders o SET status='cancelled',updated_at=NOW(),specifications=o.specifications||jsonb_build_object('cancellationReason',$3::text,'cancelledAt',NOW()) FROM customers c WHERE o.customer_id=c.id AND c.user_id=$1 AND o.order_no=$2 AND o.status IN ('new','under_review','quotation') RETURNING o.id AS "databaseId",o.order_no AS id,o.status`,
+      [userId, orderNo, reason],
     );
-  await pool().query(
-    `UPDATE quotations SET status='cancelled',updated_at=NOW() WHERE order_id=(SELECT id FROM orders WHERE order_no=$1) AND status IN ('draft','sent','changes_requested')`,
-    [orderNo],
-  );
-  await pool().query(
-    `INSERT INTO audit_logs(user_id,action,entity_type,metadata) VALUES($1,'customer.order_cancel','order',$2::jsonb)`,
-    [userId, JSON.stringify({ orderNo, reason })],
-  );
-  return { ...rows[0], reason };
+    if (!rows[0])
+      throw Object.assign(
+        new Error("Order not found or can no longer be cancelled"),
+        { status: 409 },
+      );
+    const cancelled = (await client.query(
+      `SELECT id,status AS "oldStatus" FROM quotations
+       WHERE order_id=$1 AND status IN ('draft','sent','viewed','change_requested') FOR UPDATE`,
+      [rows[0].databaseId],
+    )).rows;
+    await client.query(
+      `UPDATE quotations SET status='cancelled',cancelled_at=NOW(),lock_version=lock_version+1,updated_at=NOW()
+       WHERE order_id=$1 AND status IN ('draft','sent','viewed','change_requested')`,
+      [rows[0].databaseId],
+    );
+    for (const quotation of cancelled) {
+      await client.query(
+        `INSERT INTO quotation_status_history(quotation_id,old_status,new_status,changed_by,actor_type,customer_comment)
+         VALUES($1,$2,'cancelled',$3,'customer',$4)`,
+        [quotation.id, quotation.oldStatus, userId, `Order cancelled: ${reason}`],
+      );
+      await client.query(
+        `INSERT INTO audit_logs(user_id,action,entity_type,entity_id,metadata)
+         VALUES($1,'quotation.cancelled_with_order','quotation',$2,$3::jsonb)`,
+        [userId, quotation.id, JSON.stringify({ orderNo, reason })],
+      );
+    }
+    await client.query(
+      `INSERT INTO audit_logs(user_id,action,entity_type,entity_id,metadata) VALUES($1,'customer.order_cancel','order',$2,$3::jsonb)`,
+      [userId, rows[0].databaseId, JSON.stringify({ orderNo, reason })],
+    );
+    await client.query("COMMIT");
+    const { databaseId, ...result } = rows[0];
+    return { ...result, reason };
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 async function cancelService(userId, ticketNo, reason) {
   const { rows } = await pool().query(
@@ -667,97 +696,6 @@ async function refundPayment(userId, id, data) {
     ),
     { status: 501, errorCode: "PAYMENT_REFUND_PROVIDER_REQUIRED" },
   );
-}
-
-const visibleQuotationStatuses = [
-  "admin_approved",
-  "changes_requested",
-  "approved",
-  "rejected",
-  "expired",
-];
-function paymentCapability(enabled, quotation) {
-  const configured =
-    process.env.PAYMENT_GATEWAY_ENABLED === "true" &&
-    process.env.PAYMENT_GATEWAY_PROVIDER === "razorpay" &&
-    Boolean(process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET);
-  return {
-    enabled: Boolean(enabled && configured),
-    provider:
-      enabled && configured ? process.env.PAYMENT_GATEWAY_PROVIDER : null,
-    options:
-      enabled && configured && quotation.status === "approved"
-        ? ["advance", "full"]
-        : [],
-  };
-}
-async function quotations(userId) {
-  const { rows } = await pool().query(
-    `SELECT q.id,q.quotation_no AS "quotationNo",o.order_no AS "orderNo",o.specifications AS "productDetails",q.subtotal,q.installation,q.transportation,q.discount,q.gst_rate AS "gstRate",q.gst,q.final_amount AS "finalAmount",q.terms,q.valid_until AS "validUntil",q.status,c.payments_enabled AS "customerPaymentsEnabled" FROM quotations q JOIN orders o ON o.id=q.order_id JOIN customers c ON c.id=o.customer_id WHERE c.user_id=$1 AND q.status=ANY($2::varchar[]) ORDER BY q.id DESC`,
-    [userId, visibleQuotationStatuses],
-  );
-  return rows.map((row) => {
-    const payments = paymentCapability(row.customerPaymentsEnabled, row);
-    delete row.customerPaymentsEnabled;
-    return {
-      ...row,
-      quantity: Number(row.productDetails?.quantity || 0),
-      payments,
-      availableActions:
-        row.status === "admin_approved" &&
-        (!row.validUntil ||
-          new Date(row.validUntil) >= new Date(new Date().toDateString()))
-          ? ["approve", "request_changes"]
-          : [],
-    };
-  });
-}
-async function quotation(userId, quotationNo) {
-  const found = (await quotations(userId)).find(
-    (x) => x.quotationNo === quotationNo,
-  );
-  if (!found)
-    throw Object.assign(new Error("Quotation not found"), { status: 404 });
-  const items = (
-    await pool().query(
-      'SELECT id,description,quantity,unit_price AS "unitPrice",amount FROM quotation_items WHERE quotation_id=$1 ORDER BY id',
-      [found.id],
-    )
-  ).rows;
-  return { ...found, items };
-}
-async function quotationAction(userId, quotationNo, action, notes) {
-  const allowed = { approve: "approved", request_changes: "changes_requested" };
-  const status = allowed[action];
-  if (!status)
-    throw Object.assign(new Error("Unsupported quotation action"), {
-      status: 422,
-    });
-  const { rows } = await pool().query(
-    `UPDATE quotations q SET status=$3,updated_at=NOW() FROM orders o,customers c WHERE q.order_id=o.id AND o.customer_id=c.id AND c.user_id=$1 AND q.quotation_no=$2 AND q.status='admin_approved' AND q.admin_approved_at IS NOT NULL AND (q.valid_until IS NULL OR q.valid_until>=CURRENT_DATE) RETURNING q.quotation_no AS "quotationNo",q.status,o.id AS "orderId"`,
-    [userId, quotationNo, status],
-  );
-  if (!rows[0])
-    throw Object.assign(
-      new Error("Quotation not found, expired, or not approved by an admin"),
-      { status: 409 },
-    );
-  if (action === "approve")
-    await pool().query(
-      "UPDATE orders SET status='approved',updated_at=NOW() WHERE id=$1",
-      [rows[0].orderId],
-    );
-  await pool().query(
-    "INSERT INTO audit_logs(user_id,action,entity_type,metadata) VALUES($1,$2,$3,$4::jsonb)",
-    [
-      userId,
-      `quotation.${action}`,
-      "quotation",
-      JSON.stringify({ quotationNo, notes }),
-    ],
-  );
-  delete rows[0].orderId;
-  return rows[0];
 }
 
 const serviceTimeline = [
@@ -1203,9 +1141,6 @@ module.exports = {
   capturePayment,
   verifyPayment,
   refundPayment,
-  quotations,
-  quotation,
-  quotationAction,
   serviceTracking,
   notifications,
   registerNotificationDevice,

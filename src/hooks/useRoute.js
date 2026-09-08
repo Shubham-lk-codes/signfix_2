@@ -17,7 +17,7 @@ export default function useRoute() {
   const navigate = (next) => {
     const target = window.location.pathname.startsWith(adminBase) ? `${adminBase}${next === '/' ? '' : next}` : next;
     history.pushState({}, '', target);
-    setPath(next);
+    setPath(appPath());
   };
   return { path, navigate };
 }

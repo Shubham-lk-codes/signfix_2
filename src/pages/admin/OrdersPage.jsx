@@ -254,7 +254,7 @@ export default function OrdersPage({ navigate }) {
               <h2>Quotations</h2>
               <p>Review commercial documents linked to this order.</p>
             </div>
-            <button className="outline" onClick={() => navigate("/quotations")}>
+            <button className="outline" onClick={() => navigate(`/quotations?orderNo=${encodeURIComponent(order.id)}`)}>
               <FileText size={15} />
               Manage quotations
             </button>
@@ -267,7 +267,7 @@ export default function OrdersPage({ navigate }) {
                 <StatusBadge>{q.status}</StatusBadge>
                 <button
                   className="outline"
-                  onClick={() => navigate("/quotations")}
+                  onClick={() => navigate(`/quotations?quotationNo=${encodeURIComponent(q.quotationNo)}`)}
                 >
                   Modify
                 </button>

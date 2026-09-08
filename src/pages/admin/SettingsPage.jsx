@@ -209,6 +209,7 @@ function Operations({ value, update, notify }) {
           minimumOrderEnabled: f.get("minimumOrderEnabled") === "on",
           allowDiscounts: f.get("allowDiscounts") === "on",
           defaultDiscount: Number(f.get("defaultDiscount")),
+          maximumDiscountPercentage: Number(f.get("maximumDiscountPercentage")),
           minimumOrderValue: Number(f.get("minimumOrderValue")),
           roundFinalAmount: f.get("roundFinalAmount") === "on",
         },
@@ -290,6 +291,16 @@ function Operations({ value, update, notify }) {
             type="number"
             min="0"
             defaultValue={value.pricingSettings.defaultDiscount || 0}
+          />
+        </label>
+        <label>
+          Maximum discount %
+          <input
+            name="maximumDiscountPercentage"
+            type="number"
+            min="0"
+            max="100"
+            defaultValue={value.pricingSettings.maximumDiscountPercentage ?? 100}
           />
         </label>
         {[

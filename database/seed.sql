@@ -4,7 +4,7 @@ INSERT INTO permissions(name,description) SELECT name,description FROM (VALUES
 ('product.view','View catalog'),('product.create','Create catalog records'),('product.update','Update catalog records'),('product.delete','Disable catalog records'),
 ('pricing.view','View pricing'),('pricing.create','Create pricing rules'),('pricing.update','Update pricing rules'),
 ('order.view','View orders'),('order.update','Update orders'),('order.approve','Approve orders'),('order.cancel','Cancel orders'),
-('quotation.view','View quotations'),('quotation.create','Create quotations'),('quotation.update','Update quotations'),('quotation.send','Send quotations'),('quotation.approve','Approve quotations'),
+('quotation.view','View quotations'),('quotation.create','Create quotations'),('quotation.update','Update quotations'),('quotation.edit','Edit draft quotations'),('quotation.send','Send quotations'),('quotation.cancel','Cancel quotations'),('quotation.download','Download quotation PDFs'),('quotation.manage_revisions','Create and view quotation revisions'),('quotation.view_own','View own quotations'),('quotation.approve_own','Approve own quotations'),('quotation.request_changes_own','Request changes to own quotations'),('quotation.reject_own','Reject own quotations'),('quotation.download_own','Download own quotation PDFs'),
 ('service.view','View services'),('service.create','Create services'),('service.update','Update services'),('service.assign','Assign services'),('service.close','Close services'),
 ('technician.view','View technicians'),('technician.create','Create technicians'),('technician.update','Update technicians'),('technician.assign','Assign technicians'),
 ('asset.view','View assets'),('asset.create','Create assets'),('asset.update','Update assets'),('reports.view','View reports'),('reports.export','Export reports'),
@@ -15,14 +15,14 @@ INSERT INTO role_permissions(role_id,permission_id)
 SELECT r.id,p.id FROM roles r CROSS JOIN permissions p WHERE r.name='admin' ON CONFLICT DO NOTHING;
 INSERT INTO role_permissions(role_id,permission_id)
 SELECT r.id,p.id FROM roles r JOIN permissions p ON
- (r.name='sales_manager' AND (p.name LIKE 'customer.%' OR p.name LIKE 'product.%' OR p.name LIKE 'pricing.%' OR p.name LIKE 'order.%' OR p.name LIKE 'quotation.%' OR p.name LIKE 'ai.%' OR p.name='reports.view')) OR
+ (r.name='sales_manager' AND (p.name LIKE 'customer.%' OR p.name LIKE 'product.%' OR p.name LIKE 'pricing.%' OR p.name LIKE 'order.%' OR p.name IN ('quotation.view','quotation.create','quotation.update','quotation.edit','quotation.send','quotation.cancel','quotation.download','quotation.manage_revisions') OR p.name LIKE 'ai.%' OR p.name='reports.view')) OR
  (r.name='service_manager' AND (p.name LIKE 'customer.view' OR p.name LIKE 'service.%' OR p.name LIKE 'technician.view' OR p.name LIKE 'asset.%' OR p.name='reports.view')) OR
  (r.name='technician_manager' AND (p.name LIKE 'technician.%' OR p.name LIKE 'service.%' OR p.name LIKE 'asset.view' OR p.name='reports.view')) OR
- (r.name='support_agent' AND p.name IN ('customer.view','order.view','quotation.view','service.view','asset.view','ai.view','notifications.view'))
+ (r.name='support_agent' AND p.name IN ('customer.view','order.view','quotation.view','quotation.download','service.view','asset.view','ai.view','notifications.view'))
 ON CONFLICT DO NOTHING;
 INSERT INTO role_permissions(role_id,permission_id)
 SELECT r.id,p.id FROM roles r JOIN permissions p ON
- (r.name='customer' AND p.name IN ('product.view','pricing.view','order.view','quotation.view','service.view','asset.view','notifications.view')) OR
+ (r.name='customer' AND p.name IN ('product.view','pricing.view','order.view','quotation.view_own','quotation.approve_own','quotation.request_changes_own','quotation.reject_own','quotation.download_own','service.view','asset.view','notifications.view')) OR
  (r.name='technician' AND p.name IN ('service.view','asset.view','notifications.view'))
 ON CONFLICT DO NOTHING;
 -- All demo passwords are `SignFix@123` (the period after this sentence is not part of the password).

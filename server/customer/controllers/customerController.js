@@ -1,5 +1,6 @@
 const repo = require("../repositories/customerRepository");
-const { simplePdf } = require("../../utils/pdf");
+const quotationService = require("../../services/quotationService");
+const { createQuotationPdf } = require("../../utils/pdf");
 async function dashboard(req, res) {
   res.json(await repo.dashboard(req.user.id));
 }
@@ -32,52 +33,35 @@ async function order(req, res) {
   res.json(await repo.order(req.user.id, req.params.id));
 }
 async function quotations(req, res) {
-  res.json({ data: await repo.quotations(req.user.id) });
+  res.json(await quotationService.customerList(req.user.id, req.query));
 }
 async function quotation(req, res) {
-  res.json(await repo.quotation(req.user.id, req.params.id));
+  res.json(await quotationService.customerDetail(req.user.id, req.params.id));
 }
 async function quotationAction(req, res) {
-  res.json(
-    await repo.quotationAction(
-      req.user.id,
-      req.params.id,
-      req.body.action,
-      req.body.notes,
-    ),
-  );
+  res.json(await quotationService.customerAction(req.user.id, req.params.id, req.body.action, req.body.comment || req.body.notes));
+}
+async function approveQuotation(req, res) {
+  res.json(await quotationService.customerAction(req.user.id, req.params.id, "approve", req.body.comment));
+}
+async function requestQuotationChanges(req, res) {
+  res.json(await quotationService.customerAction(req.user.id, req.params.id, "request_changes", req.body.comment));
+}
+async function rejectQuotation(req, res) {
+  res.json(await quotationService.customerAction(req.user.id, req.params.id, "reject", req.body.reason));
 }
 async function quotationPdf(req, res) {
-  const q = await repo.quotation(req.user.id, req.params.id);
-  const product = q.productDetails || {};
-  const lines = [
-    `Quotation: ${q.quotationNo}`,
-    `Order: ${q.orderNo}`,
-    `Product: ${product.product || "-"}`,
-    `Dimensions: ${product.length || "-"} x ${product.width || "-"} ${product.unit || ""}`,
-    `Material: ${product.material || "-"}`,
-    `Lighting: ${product.lighting || "-"}`,
-    `Quantity: ${q.quantity || "-"}`,
-    ...q.items.map(
-      (item) =>
-        `${item.description}: ${item.quantity} x INR ${item.unitPrice} = INR ${item.amount}`,
-    ),
-    `Subtotal: INR ${q.subtotal || 0}`,
-    `Installation: INR ${q.installation || 0}`,
-    `Transportation: INR ${q.transportation || 0}`,
-    `Discount: INR ${q.discount || 0}`,
-    `GST (${q.gstRate || 0}%): INR ${q.gst || 0}`,
-    `Final amount: INR ${q.finalAmount}`,
-    `Validity: ${q.validUntil || "-"}`,
-    `Terms: ${q.terms || "-"}`,
-  ];
+  const q = await quotationService.customerDetail(req.user.id, req.params.id);
+  const buffer = await createQuotationPdf(q, await quotationService.companySettings());
+  await quotationService.recordPdfDownload(req.user, req.params.id, "customer").catch((error) => console.warn("Quotation PDF audit failed:", error.message));
   res
     .set({
       "Content-Type": "application/pdf",
-      "Content-Disposition": `attachment; filename="${q.quotationNo}.pdf"`,
+      "Content-Disposition": `attachment; filename="${q.quotationNo}-v${q.version}.pdf"`,
+      "Content-Length": buffer.length,
       "Cache-Control": "private, no-store",
     })
-    .send(simplePdf("SignFix Quotation", lines));
+    .send(buffer);
 }
 async function serviceTracking(req, res) {
   res.json(await repo.serviceTracking(req.user.id, req.params.id));
@@ -91,7 +75,11 @@ function notificationConfig(req, res) {
     events: [
       "order.submitted",
       "quotation.generated",
+      "quotation.sent",
       "quotation.updated",
+      "quotation.resent",
+      "quotation.expiring",
+      "quotation.expired",
       "order.approved",
       "order.production_started",
       "order.ready",
@@ -456,6 +444,9 @@ module.exports = {
   quotations,
   quotation,
   quotationAction,
+  approveQuotation,
+  requestQuotationChanges,
+  rejectQuotation,
   quotationPdf,
   serviceTracking,
   notifications,

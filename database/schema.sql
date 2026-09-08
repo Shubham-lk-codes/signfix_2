@@ -298,3 +298,146 @@ SELECT s.id,o.installation_technician_id,'assigned',NOW()
 FROM orders o JOIN service_tickets s ON s.order_id=o.id
 WHERE o.installation_technician_id IS NOT NULL
   AND NOT EXISTS (SELECT 1 FROM technician_jobs j WHERE j.ticket_id=s.id);
+
+-- Production quotation workflow. These ALTER statements intentionally extend
+-- the original tables so existing commercial records remain intact.
+CREATE TABLE IF NOT EXISTS business_sequences (
+  sequence_key VARCHAR(80) PRIMARY KEY,
+  current_value BIGINT NOT NULL CHECK (current_value > 0),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+ALTER TABLE quotations ADD COLUMN IF NOT EXISTS customer_id BIGINT REFERENCES customers(id);
+ALTER TABLE quotations ADD COLUMN IF NOT EXISTS version INTEGER NOT NULL DEFAULT 1;
+ALTER TABLE quotations ADD COLUMN IF NOT EXISTS lock_version INTEGER NOT NULL DEFAULT 1;
+ALTER TABLE quotations ADD COLUMN IF NOT EXISTS issue_date DATE NOT NULL DEFAULT CURRENT_DATE;
+ALTER TABLE quotations ADD COLUMN IF NOT EXISTS discount_type VARCHAR(20) NOT NULL DEFAULT 'fixed';
+ALTER TABLE quotations ADD COLUMN IF NOT EXISTS discount_value NUMERIC(12,2) NOT NULL DEFAULT 0;
+ALTER TABLE quotations ADD COLUMN IF NOT EXISTS discount_amount NUMERIC(12,2) NOT NULL DEFAULT 0;
+ALTER TABLE quotations ADD COLUMN IF NOT EXISTS item_discount_amount NUMERIC(12,2) NOT NULL DEFAULT 0;
+ALTER TABLE quotations ADD COLUMN IF NOT EXISTS taxable_amount NUMERIC(12,2) NOT NULL DEFAULT 0;
+ALTER TABLE quotations ADD COLUMN IF NOT EXISTS design NUMERIC(12,2) NOT NULL DEFAULT 0;
+ALTER TABLE quotations ADD COLUMN IF NOT EXISTS accessories NUMERIC(12,2) NOT NULL DEFAULT 0;
+ALTER TABLE quotations ADD COLUMN IF NOT EXISTS other_charges NUMERIC(12,2) NOT NULL DEFAULT 0;
+ALTER TABLE quotations ADD COLUMN IF NOT EXISTS customer_notes TEXT;
+ALTER TABLE quotations ADD COLUMN IF NOT EXISTS internal_notes TEXT;
+ALTER TABLE quotations ADD COLUMN IF NOT EXISTS change_request_comment TEXT;
+ALTER TABLE quotations ADD COLUMN IF NOT EXISTS rejection_reason TEXT;
+ALTER TABLE quotations ADD COLUMN IF NOT EXISTS created_by BIGINT REFERENCES users(id);
+ALTER TABLE quotations ADD COLUMN IF NOT EXISTS updated_by BIGINT REFERENCES users(id);
+ALTER TABLE quotations ADD COLUMN IF NOT EXISTS sent_at TIMESTAMPTZ;
+ALTER TABLE quotations ADD COLUMN IF NOT EXISTS viewed_at TIMESTAMPTZ;
+ALTER TABLE quotations ADD COLUMN IF NOT EXISTS approved_at TIMESTAMPTZ;
+ALTER TABLE quotations ADD COLUMN IF NOT EXISTS rejected_at TIMESTAMPTZ;
+ALTER TABLE quotations ADD COLUMN IF NOT EXISTS change_requested_at TIMESTAMPTZ;
+ALTER TABLE quotations ADD COLUMN IF NOT EXISTS expired_at TIMESTAMPTZ;
+ALTER TABLE quotations ADD COLUMN IF NOT EXISTS cancelled_at TIMESTAMPTZ;
+ALTER TABLE quotations ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP;
+
+UPDATE quotations q SET customer_id=o.customer_id FROM orders o WHERE q.order_id=o.id AND q.customer_id IS NULL;
+UPDATE quotations SET status='sent' WHERE status='admin_approved';
+UPDATE quotations SET status='change_requested' WHERE status='changes_requested';
+UPDATE quotations SET status=COALESCE(status,'draft'),subtotal=COALESCE(subtotal,0),discount=COALESCE(discount,0),gst=COALESCE(gst,0),installation=COALESCE(installation,0),transportation=COALESCE(transportation,0),gst_rate=COALESCE(gst_rate,0),discount_amount=COALESCE(NULLIF(discount_amount,0),discount,0),discount_value=COALESCE(NULLIF(discount_value,0),discount,0),taxable_amount=COALESCE(NULLIF(taxable_amount,0),subtotal-discount,0),updated_at=COALESCE(updated_at,CURRENT_TIMESTAMP);
+ALTER TABLE quotations ALTER COLUMN customer_id SET NOT NULL;
+ALTER TABLE quotations ALTER COLUMN status SET DEFAULT 'draft';
+ALTER TABLE quotations ALTER COLUMN status SET NOT NULL;
+ALTER TABLE quotations ALTER COLUMN subtotal SET DEFAULT 0;
+ALTER TABLE quotations ALTER COLUMN subtotal SET NOT NULL;
+ALTER TABLE quotations ALTER COLUMN discount SET DEFAULT 0;
+ALTER TABLE quotations ALTER COLUMN discount SET NOT NULL;
+ALTER TABLE quotations ALTER COLUMN gst SET DEFAULT 0;
+ALTER TABLE quotations ALTER COLUMN gst SET NOT NULL;
+ALTER TABLE quotations ALTER COLUMN installation SET DEFAULT 0;
+ALTER TABLE quotations ALTER COLUMN installation SET NOT NULL;
+ALTER TABLE quotations ALTER COLUMN transportation SET DEFAULT 0;
+ALTER TABLE quotations ALTER COLUMN transportation SET NOT NULL;
+ALTER TABLE quotations ALTER COLUMN gst_rate SET DEFAULT 0;
+ALTER TABLE quotations ALTER COLUMN gst_rate SET NOT NULL;
+ALTER TABLE quotations DROP CONSTRAINT IF EXISTS quotations_status_check;
+ALTER TABLE quotations ADD CONSTRAINT quotations_status_check CHECK (status IN ('draft','sent','viewed','change_requested','approved','rejected','expired','cancelled')) NOT VALID;
+ALTER TABLE quotations DROP CONSTRAINT IF EXISTS quotations_money_check;
+ALTER TABLE quotations ADD CONSTRAINT quotations_money_check CHECK (subtotal>=0 AND discount>=0 AND discount_amount>=0 AND item_discount_amount>=0 AND taxable_amount>=0 AND gst>=0 AND final_amount>=0 AND installation>=0 AND transportation>=0 AND design>=0 AND accessories>=0 AND other_charges>=0 AND gst_rate BETWEEN 0 AND 100 AND discount_value>=0) NOT VALID;
+ALTER TABLE quotations DROP CONSTRAINT IF EXISTS quotations_discount_type_check;
+ALTER TABLE quotations ADD CONSTRAINT quotations_discount_type_check CHECK (discount_type IN ('none','fixed','percentage')) NOT VALID;
+ALTER TABLE quotations DROP CONSTRAINT IF EXISTS quotations_version_check;
+ALTER TABLE quotations ADD CONSTRAINT quotations_version_check CHECK (version > 0 AND lock_version > 0) NOT VALID;
+
+ALTER TABLE quotation_items ADD COLUMN IF NOT EXISTS product_id BIGINT REFERENCES products(id);
+ALTER TABLE quotation_items ADD COLUMN IF NOT EXISTS unit VARCHAR(30) NOT NULL DEFAULT 'unit';
+ALTER TABLE quotation_items ADD COLUMN IF NOT EXISTS discount_type VARCHAR(20) NOT NULL DEFAULT 'none';
+ALTER TABLE quotation_items ADD COLUMN IF NOT EXISTS discount_value NUMERIC(12,2) NOT NULL DEFAULT 0;
+ALTER TABLE quotation_items ADD COLUMN IF NOT EXISTS discount_amount NUMERIC(12,2) NOT NULL DEFAULT 0;
+ALTER TABLE quotation_items ADD COLUMN IF NOT EXISTS tax_percentage NUMERIC(5,2) NOT NULL DEFAULT 0;
+ALTER TABLE quotation_items ADD COLUMN IF NOT EXISTS tax_amount NUMERIC(12,2) NOT NULL DEFAULT 0;
+ALTER TABLE quotation_items ADD COLUMN IF NOT EXISTS line_subtotal NUMERIC(12,2) NOT NULL DEFAULT 0;
+ALTER TABLE quotation_items ADD COLUMN IF NOT EXISTS line_total NUMERIC(12,2) NOT NULL DEFAULT 0;
+ALTER TABLE quotation_items ADD COLUMN IF NOT EXISTS metadata JSONB NOT NULL DEFAULT '{}'::jsonb;
+ALTER TABLE quotation_items ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP;
+ALTER TABLE quotation_items ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP;
+UPDATE quotation_items SET unit_price=COALESCE(unit_price,0),quantity=COALESCE(quantity,1),line_subtotal=COALESCE(NULLIF(line_subtotal,0),quantity*unit_price,0),line_total=COALESCE(NULLIF(line_total,0),amount,quantity*unit_price,0),amount=COALESCE(amount,quantity*unit_price,0);
+ALTER TABLE quotation_items ALTER COLUMN quantity SET NOT NULL;
+ALTER TABLE quotation_items ALTER COLUMN unit_price SET DEFAULT 0;
+ALTER TABLE quotation_items ALTER COLUMN unit_price SET NOT NULL;
+ALTER TABLE quotation_items ALTER COLUMN amount SET DEFAULT 0;
+ALTER TABLE quotation_items ALTER COLUMN amount SET NOT NULL;
+ALTER TABLE quotation_items DROP CONSTRAINT IF EXISTS quotation_items_money_check;
+ALTER TABLE quotation_items ADD CONSTRAINT quotation_items_money_check CHECK (quantity>0 AND unit_price>=0 AND discount_value>=0 AND discount_amount>=0 AND tax_percentage BETWEEN 0 AND 100 AND tax_amount>=0 AND line_subtotal>=0 AND line_total>=0) NOT VALID;
+ALTER TABLE quotation_items DROP CONSTRAINT IF EXISTS quotation_items_discount_type_check;
+ALTER TABLE quotation_items ADD CONSTRAINT quotation_items_discount_type_check CHECK (discount_type IN ('none','fixed','percentage')) NOT VALID;
+
+CREATE TABLE IF NOT EXISTS quotation_status_history (
+  id BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+  quotation_id BIGINT NOT NULL REFERENCES quotations(id) ON DELETE CASCADE,
+  old_status VARCHAR(30),
+  new_status VARCHAR(30) NOT NULL,
+  changed_by BIGINT REFERENCES users(id),
+  actor_type VARCHAR(20) NOT NULL CHECK (actor_type IN ('admin','customer','system')),
+  customer_comment TEXT,
+  internal_note TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE IF NOT EXISTS quotation_revisions (
+  id BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+  quotation_id BIGINT NOT NULL REFERENCES quotations(id) ON DELETE CASCADE,
+  version INTEGER NOT NULL CHECK (version > 0),
+  snapshot JSONB NOT NULL,
+  created_by BIGINT REFERENCES users(id),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(quotation_id,version)
+);
+ALTER TABLE quotation_status_history DROP CONSTRAINT IF EXISTS quotation_status_history_old_status_check;
+ALTER TABLE quotation_status_history ADD CONSTRAINT quotation_status_history_old_status_check CHECK (old_status IS NULL OR old_status IN ('draft','sent','viewed','change_requested','approved','rejected','expired','cancelled')) NOT VALID;
+ALTER TABLE quotation_status_history DROP CONSTRAINT IF EXISTS quotation_status_history_new_status_check;
+ALTER TABLE quotation_status_history ADD CONSTRAINT quotation_status_history_new_status_check CHECK (new_status IN ('draft','sent','viewed','change_requested','approved','rejected','expired','cancelled')) NOT VALID;
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_quotations_number ON quotations(quotation_no);
+CREATE INDEX IF NOT EXISTS idx_quotations_customer_created ON quotations(customer_id,created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_quotations_status_updated ON quotations(status,updated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_quotations_valid_until ON quotations(valid_until) WHERE status IN ('sent','viewed');
+CREATE INDEX IF NOT EXISTS idx_quotation_items_quotation ON quotation_items(quotation_id,id);
+CREATE INDEX IF NOT EXISTS idx_quotation_history_quotation ON quotation_status_history(quotation_id,id);
+CREATE INDEX IF NOT EXISTS idx_quotation_revisions_quotation ON quotation_revisions(quotation_id,version DESC);
+
+INSERT INTO permissions(name,description) VALUES
+('quotation.edit','Edit draft quotations'),
+('quotation.cancel','Cancel quotations'),
+('quotation.download','Download quotation PDFs'),
+('quotation.manage_revisions','Create and view quotation revisions'),
+('quotation.view_own','View own quotations'),
+('quotation.approve_own','Approve own quotations'),
+('quotation.request_changes_own','Request changes to own quotations'),
+('quotation.reject_own','Reject own quotations'),
+('quotation.download_own','Download own quotation PDFs')
+ON CONFLICT(name) DO UPDATE SET description=EXCLUDED.description;
+INSERT INTO role_permissions(role_id,permission_id)
+SELECT r.id,p.id FROM roles r JOIN permissions p ON p.name LIKE 'quotation.%'
+WHERE r.name='admin' ON CONFLICT DO NOTHING;
+INSERT INTO role_permissions(role_id,permission_id)
+SELECT r.id,p.id FROM roles r JOIN permissions p ON p.name IN ('quotation.view','quotation.create','quotation.update','quotation.edit','quotation.send','quotation.cancel','quotation.download','quotation.manage_revisions')
+WHERE r.name='sales_manager' ON CONFLICT DO NOTHING;
+INSERT INTO role_permissions(role_id,permission_id)
+SELECT r.id,p.id FROM roles r JOIN permissions p ON p.name IN ('quotation.view','quotation.download')
+WHERE r.name='support_agent' ON CONFLICT DO NOTHING;
+INSERT INTO role_permissions(role_id,permission_id)
+SELECT r.id,p.id FROM roles r JOIN permissions p ON p.name IN ('quotation.view_own','quotation.approve_own','quotation.request_changes_own','quotation.reject_own','quotation.download_own')
+WHERE r.name='customer' ON CONFLICT DO NOTHING;
