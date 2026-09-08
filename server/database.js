@@ -90,6 +90,23 @@ async function getDiscountedProducts() {
   return rows.map(r => ({ ...r, cashbackAmount: 250 }));
 }
 
+async function getDiscountedSliderImages() {
+  const { rows } = await getPool().query(
+    `SELECT id, name, category, description, image_url AS "imageUrl", base_price AS price, is_discounted AS "isDiscounted" FROM products WHERE status=TRUE AND is_discounted=TRUE ORDER BY id`
+  );
+  return rows.map(r => ({
+    id: String(r.id),
+    name: r.name,
+    category: r.category,
+    description: r.description,
+    imageUrl: r.imageUrl || null,
+    price: Number(r.price || 0),
+    cashbackAmount: 250,
+    isDiscounted: true,
+    cashbackBadge: '₹250 Cashback'
+  }));
+}
+
 async function createOrder(user, data, orderNo) {
   const admin = ['super_admin','admin'].includes(user.role);
   if (admin && !data.customerId) throw Object.assign(new Error('customerId is required when an admin creates an order'), { status: 422 });
@@ -238,4 +255,4 @@ async function registerDeviceToken(userId, token, platform) { await getPool().qu
 async function notificationRecipients(audience) { const roles={customers:['customer'],technicians:['technician'],admins:['super_admin','admin','sales_manager','service_manager','technician_manager']};const params=[];let where="dt.active=TRUE AND u.status='active'";if(roles[audience]){params.push(roles[audience]);where+=' AND r.name=ANY($1)';}return (await getPool().query(`SELECT DISTINCT dt.token,u.id AS "userId" FROM device_tokens dt JOIN users u ON u.id=dt.user_id JOIN roles r ON r.id=u.role_id WHERE ${where}`,params)).rows; }
 async function createBulkNotifications(recipients, message, user) { if(!recipients.length)return;const ids=[...new Set(recipients.map(row=>row.userId))];await getPool().query(`INSERT INTO notifications(user_id,channel,title,body) SELECT unnest($1::bigint[]),$2,$3,$4`,[ids,message.channel,message.title,message.body]);await audit(user.id,'notification.send','notification',null,{recipients:ids.length,title:message.title}); }
 async function audit(userId, action, entityType, entityId, metadata) { await getPool().query('INSERT INTO audit_logs(user_id,action,entity_type,entity_id,metadata) VALUES($1,$2,$3,$4,$5::jsonb)', [userId, action, entityType, entityId, JSON.stringify(metadata)]); }
-module.exports = { isConfigured, getPool, health, findUserByEmail, listCatalog, createCatalog, updateCatalog, deleteCatalog, listOrders, createOrder, getOrder, updateOrder, updateOrderStatus, reviewOrderDesign, listServices, createService, updateService, listJobs, getJob, updateJobStatus, calculatePrice, listAdminCustomers, createAdminCustomer, getAdminCustomer, updateAdminCustomer, disableAdminCustomer, dashboard, report, registerDeviceToken, notificationRecipients, createBulkNotifications, getCustomerWallet, getDiscountedProducts };
+module.exports = { isConfigured, getPool, health, findUserByEmail, listCatalog, createCatalog, updateCatalog, deleteCatalog, listOrders, createOrder, getOrder, updateOrder, updateOrderStatus, reviewOrderDesign, listServices, createService, updateService, listJobs, getJob, updateJobStatus, calculatePrice, listAdminCustomers, createAdminCustomer, getAdminCustomer, updateAdminCustomer, disableAdminCustomer, dashboard, report, registerDeviceToken, notificationRecipients, createBulkNotifications, getCustomerWallet, getDiscountedProducts, getDiscountedSliderImages };

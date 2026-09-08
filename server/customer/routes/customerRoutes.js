@@ -22,6 +22,7 @@ const address = z.object({
 router.get("/dashboard", controller.dashboard);
 router.get("/wallet", controller.wallet);
 router.get("/discounted-products", controller.discountedProducts);
+router.get("/discounted-slider-images", controller.discountedSliderImages);
 router.get("/order-options", controller.orderOptions);
 router.get("/service-options", controller.serviceOptions);
 router.get("/profile", controller.profile);

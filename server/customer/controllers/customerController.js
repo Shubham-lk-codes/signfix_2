@@ -420,6 +420,10 @@ async function discountedProducts(req, res) {
   const db = require("../../database");
   res.json(await db.getDiscountedProducts());
 }
+async function discountedSliderImages(req, res) {
+  const db = require("../../database");
+  res.json(await db.getDiscountedSliderImages());
+}
 
 module.exports = {
   dashboard,
@@ -477,4 +481,5 @@ module.exports = {
   createLead,
   wallet,
   discountedProducts,
+  discountedSliderImages,
 };
