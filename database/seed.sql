@@ -36,6 +36,7 @@ ON CONFLICT (email) DO UPDATE SET role_id=EXCLUDED.role_id,name=EXCLUDED.name,mo
 INSERT INTO customers(user_id,company_name,address) SELECT id,'Demo Retail','{"city":"Bengaluru","state":"Karnataka"}'::jsonb FROM users WHERE email='customer@signfix.in' ON CONFLICT (user_id) DO NOTHING;
 INSERT INTO technicians(user_id,service_areas) SELECT id,'["Bengaluru"]'::jsonb FROM users WHERE email='tech@signfix.in' ON CONFLICT (user_id) DO NOTHING;
 INSERT INTO products(id,name,category,description,pricing_method,status) VALUES (1,'LED Sign Board','Illuminated','Energy-efficient LED signage','sqft',TRUE),(2,'Acrylic Sign Board','Premium','Premium acrylic signage','sqft',TRUE),(3,'Flex Sign Board','Economy','Printed flex signage','sqft',TRUE),(4,'Neon Sign','Decorative','Custom neon concept','sqft',TRUE) ON CONFLICT (id) DO NOTHING;
+UPDATE products SET is_discounted=TRUE WHERE name IN ('LED Sign Board', 'Acrylic Sign Board');
 INSERT INTO products(name,category,description,pricing_method,status)
 SELECT v.* FROM (VALUES
 ('Glow Sign Board','Illuminated','Illuminated glow signage','sqft',TRUE),

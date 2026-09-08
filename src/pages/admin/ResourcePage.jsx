@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { get, patch, post, remove } from '../../api/client';
+import { api, get, patch, post, remove } from '../../api/client';
 import DataTable from '../../components/ui/DataTable';
 import LoadingState from '../../components/ui/LoadingState';
 import StatusBadge from '../../components/ui/StatusBadge';
@@ -7,26 +7,120 @@ import StatusBadge from '../../components/ui/StatusBadge';
 const config = {
   'service-areas':{title:'Service areas / allowed cities',endpoint:'/api/admin/service-areas',write:true,fields:[['name','City name'],['state','State'],['country','Country'],['latitude','Center latitude','number'],['longitude','Center longitude','number'],['radiusKm','Service radius (km)','number'],['active','Status','select',['true','false']]]},
   'whatsapp-notifications':{title:'WhatsApp notification logs',endpoint:'/api/admin/whatsapp-notifications'},
-  customers:{title:'Customers',endpoint:'/api/catalog/customers'}, products:{title:'Sign board types',endpoint:'/api/catalog/products',write:true,fields:[['name','Name'],['category','Category'],['description','Description'],['imageUrl','Image URL'],['pricingMethod','Pricing method','select',['sqft','unit','fixed']],['price','Configured price','number'],['status','Status','select',['true','false']]]},
-  categories:{title:'Product categories',endpoint:'/api/catalog/categories',write:true,fields:[['name','Name']]}, materials:{title:'Materials',endpoint:'/api/catalog/materials',write:true,fields:[['name','Name'],['description','Description'],['imageUrl','Image URL'],['pricingMethod','Pricing method','select',['sqft','unit','fixed']],['price','Price','number'],['status','Status','select',['true','false']]]}, lighting:{title:'Lighting types',endpoint:'/api/catalog/lighting',write:true,fields:[['name','Name'],['description','Description'],['imageUrl','Image URL'],['pricingMethod','Pricing method','select',['sqft','unit','fixed']],['price','Price','number'],['status','Status','select',['true','false']]]}, accessories:{title:'Accessories',endpoint:'/api/catalog/accessories',write:true,fields:[['name','Name'],['description','Description'],['imageUrl','Image URL'],['pricingMethod','Pricing method','select',['sqft','unit','fixed']],['price','Price','number'],['status','Status','select',['true','false']]]}, 'installation-options':{title:'Installation options',endpoint:'/api/catalog/installation-options',write:true,fields:[['name','Name'],['description','Description'],['imageUrl','Image URL'],['pricingMethod','Pricing method','select',['sqft','unit','fixed']],['price','Price','number'],['status','Status','select',['true','false']]]},
-  orders:{title:'Orders',endpoint:'/api/orders'}, quotations:{title:'Quotations',endpoint:'/api/catalog/quotations'}, services:{title:'Service tickets',endpoint:'/api/services'}, technicians:{title:'Technicians',endpoint:'/api/catalog/technicians'}, assets:{title:'Sign board assets',endpoint:'/api/catalog/assets'},
+  customers:{title:'Customers',endpoint:'/api/catalog/customers'},
+  products:{title:'Sign board types',endpoint:'/api/catalog/products',write:true,fields:[['name','Name'],['category','Category'],['description','Description'],['imageUrl','Image URL','image'],['pricingMethod','Pricing method','select',['sqft','unit','fixed']],['price','Configured price','number'],['status','Status','select',['true','false']],['isDiscounted','Discounted Products','select',['false','true']]]},
+  categories:{title:'Product categories',endpoint:'/api/catalog/categories',write:true,fields:[['name','Name']]},
+  materials:{title:'Materials',endpoint:'/api/catalog/materials',write:true,fields:[['name','Name'],['description','Description'],['imageUrl','Image URL','image'],['pricingMethod','Pricing method','select',['sqft','unit','fixed']],['price','Price','number'],['status','Status','select',['true','false']]]},
+  lighting:{title:'Lighting types',endpoint:'/api/catalog/lighting',write:true,fields:[['name','Name'],['description','Description'],['imageUrl','Image URL','image'],['pricingMethod','Pricing method','select',['sqft','unit','fixed']],['price','Price','number'],['status','Status','select',['true','false']]]},
+  accessories:{title:'Accessories',endpoint:'/api/catalog/accessories',write:true,fields:[['name','Name'],['description','Description'],['imageUrl','Image URL','image'],['pricingMethod','Pricing method','select',['sqft','unit','fixed']],['price','Price','number'],['status','Status','select',['true','false']]]},
+  'installation-options':{title:'Installation options',endpoint:'/api/catalog/installation-options',write:true,fields:[['name','Name'],['description','Description'],['imageUrl','Image URL','image'],['pricingMethod','Pricing method','select',['sqft','unit','fixed']],['price','Price','number'],['status','Status','select',['true','false']]]},
+  orders:{title:'Orders',endpoint:'/api/orders'},
+  quotations:{title:'Quotations',endpoint:'/api/catalog/quotations'},
+  services:{title:'Service tickets',endpoint:'/api/services'},
+  technicians:{title:'Technicians',endpoint:'/api/catalog/technicians'},
+  assets:{title:'Sign board assets',endpoint:'/api/catalog/assets'},
   'ai-leads':{title:'AI sales leads',endpoint:'/api/catalog/ai-leads',write:true,fields:[['requirement','Requirement'],['product','Product'],['estimatedBudget','Estimated budget','number'],['contact','Contact'],['status','Status','select',['new','contacted','qualified','quotation','won','lost']]]},
-  'ai-knowledge':{title:'AI knowledge base',endpoint:'/api/catalog/ai-knowledge',write:true,fields:[['title','Title'],['category','Category'],['content','Content']]}, 'ai-conversations':{title:'AI conversations',endpoint:'/api/catalog/ai-conversations'}, 'design-concepts':{title:'Design concepts',endpoint:'/api/catalog/design-concepts'}, notifications:{title:'Notifications',endpoint:'/api/catalog/notifications'}, 'notification-templates':{title:'Notification templates',endpoint:'/api/catalog/notification-templates',write:true,fields:[['name','Template name'],['eventKey','Event key'],['title','Notification title'],['body','Message']]}, settings:{title:'Settings',endpoint:'/api/catalog/settings'}, roles:{title:'Roles',endpoint:'/api/catalog/roles'}, permissions:{title:'Permissions',endpoint:'/api/catalog/permissions'}, 'audit-logs':{title:'Audit logs',endpoint:'/api/catalog/audit-logs'}
+  'ai-knowledge':{title:'AI knowledge base',endpoint:'/api/catalog/ai-knowledge',write:true,fields:[['title','Title'],['category','Category'],['content','Content']]},
+  'ai-conversations':{title:'AI conversations',endpoint:'/api/catalog/ai-conversations'},
+  'design-concepts':{title:'Design concepts',endpoint:'/api/catalog/design-concepts'},
+  notifications:{title:'Notifications',endpoint:'/api/catalog/notifications'},
+  'notification-templates':{title:'Notification templates',endpoint:'/api/catalog/notification-templates',write:true,fields:[['name','Template name'],['eventKey','Event key'],['title','Notification title'],['body','Message']]},
+  settings:{title:'Settings',endpoint:'/api/catalog/settings'},
+  roles:{title:'Roles',endpoint:'/api/catalog/roles'},
+  permissions:{title:'Permissions',endpoint:'/api/catalog/permissions'},
+  'audit-logs':{title:'Audit logs',endpoint:'/api/catalog/audit-logs'}
 };
 
 export default function ResourcePage({ resource }) {
-  const meta=config[resource], [rows,setRows]=useState([]), [pagination,setPagination]=useState({page:1,total:0,totalPages:1}), [loading,setLoading]=useState(true), [error,setError]=useState(''), [search,setSearch]=useState(''), [editing,setEditing]=useState(null);
+  const meta=config[resource], [rows,setRows]=useState([]), [pagination,setPagination]=useState({page:1,total:0,totalPages:1}), [loading,setLoading]=useState(true), [error,setError]=useState(''), [search,setSearch]=useState(''), [editing,setEditing]=useState(null), [imageValues,setImageValues]=useState({}), [uploading,setUploading]=useState(false);
+  
   async function load(page=1){setLoading(true);try{const result=await get(`${meta.endpoint}?search=${encodeURIComponent(search)}&page=${page}&pageSize=20`);setRows(result.data||[]);setPagination({page:result.page||page,total:result.total??result.data?.length??0,totalPages:result.totalPages||1});setError('')}catch(e){setError(e.message)}finally{setLoading(false)}}
-  useEffect(()=>{setSearch('');setEditing(null);load(1)},[resource]);
-  async function save(event){event.preventDefault();const values=Object.fromEntries(new FormData(event.currentTarget));for(const field of meta.fields||[]){if(field[2]==='number'&&values[field[0]]!=='')values[field[0]]=Number(values[field[0]]);if(field[0]==='status')values.status=values.status==='true'}try{editing?.id?await patch(`${meta.endpoint}/${editing.id}`,values):await post(meta.endpoint,values);setEditing(null);await load(pagination.page)}catch(e){setError(e.message)}}
+  useEffect(()=>{setSearch('');setEditing(null);setImageValues({});load(1)},[resource]);
+  useEffect(()=>{if(editing){setImageValues({imageUrl:editing.imageUrl||''})}},[editing]);
+
+  async function save(event){
+    event.preventDefault();
+    const values=Object.fromEntries(new FormData(event.currentTarget));
+    for(const field of meta.fields||[]){
+      if(field[2]==='number'&&values[field[0]]!=='') values[field[0]]=Number(values[field[0]]);
+      if(field[0]==='status') values.status=values.status==='true';
+      if(field[0]==='isDiscounted') values.isDiscounted=values.isDiscounted==='true';
+    }
+    if(imageValues.imageUrl !== undefined) values.imageUrl = imageValues.imageUrl;
+    try{
+      editing?.id?await patch(`${meta.endpoint}/${editing.id}`,values):await post(meta.endpoint,values);
+      setEditing(null);
+      await load(pagination.page);
+    }catch(e){setError(e.message)}
+  }
+
   async function disable(row){const verb=resource==='service-areas'?'Delete':'Disable';if(!window.confirm(`${verb} ${row.name||row.title||'this record'}?`))return;try{await remove(`${meta.endpoint}/${row.id}`);await load(pagination.page)}catch(e){setError(e.message)}}
-  const columns=useMemo(()=>{const keys=rows.length?Object.keys(rows[0]).filter(key=>!['specifications','location','photos','details','address','metadata','content','response'].includes(key)).slice(0,7):['id','name','status'];const base=keys.map(key=>({key,label:key.replace(/([A-Z])/g,' $1').toUpperCase(),render:['status','active'].includes(key)?(value)=><StatusBadge>{String(value)}</StatusBadge>:undefined}));if(meta?.write)base.push({key:'actions',label:'ACTIONS',render:(_,row)=><span className="table-actions"><button className="outline" onClick={()=>setEditing(row)}>Edit</button><button className="danger" onClick={()=>disable(row)}>{resource==='service-areas'?'Delete':'Disable'}</button></span>});return base},[rows,meta?.write,resource]);
+
+  async function handleFileUpload(e, fieldName) {
+    const file = e.target.files?.[0];
+    if(!file) return;
+    const body = new FormData();
+    body.append('file', file);
+    try {
+      setUploading(true);
+      const res = await api('/api/uploads', { method: 'POST', body });
+      if(res?.url) {
+        setImageValues(prev => ({ ...prev, [fieldName]: res.url }));
+      }
+    } catch(err) {
+      alert(err.message || 'Image upload failed');
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  const columns=useMemo(()=>{
+    const keys=rows.length?Object.keys(rows[0]).filter(key=>!['specifications','location','photos','details','address','metadata','content','response'].includes(key)).slice(0,8):['id','name','status'];
+    const base=keys.map(key=>({
+      key,
+      label:key.replace(/([A-Z])/g,' $1').toUpperCase(),
+      render:['status','active','isDiscounted'].includes(key)?(value)=><StatusBadge>{key==='isDiscounted'?(value?'Discounted':'Standard'):String(value)}</StatusBadge>:key==='imageUrl'?(val)=>val?<img src={val} alt="preview" style={{width:36,height:36,objectFit:'cover',borderRadius:4}}/>:'—':undefined
+    }));
+    if(meta?.write)base.push({key:'actions',label:'ACTIONS',render:(_,row)=><span className="table-actions"><button className="outline" onClick={()=>setEditing(row)}>Edit</button><button className="danger" onClick={()=>disable(row)}>{resource==='service-areas'?'Delete':'Disable'}</button></span>});
+    return base;
+  },[rows,meta?.write,resource]);
+
   if(!meta)return <section className="content"><h1>Unknown resource</h1></section>;
+
   return <section className="content"><div className="headline"><div><p>OPERATIONS</p><h1>{meta.title}</h1><small>Search, review and manage persistent records.</small></div>{meta.write&&<button className="primary" onClick={()=>setEditing({})}>+ Add new</button>}</div>
     <div className="resource-toolbar"><input value={search} onChange={e=>setSearch(e.target.value)} onKeyDown={e=>e.key==='Enter'&&load(1)} placeholder={`Search ${meta.title.toLowerCase()}`}/><button className="outline" onClick={()=>load(1)}>Search</button></div>
     {editing&&<form className="inline-form resource-editor card" onSubmit={save}>
-      <div className="resource-editor-fields">{meta.fields.map(([name,label,type='text',options])=><label className={`resource-field resource-field-${name}`} key={name}>{label}{type==='select'?<select name={name} defaultValue={String(editing[name]??options[0])}>{options.map(value=><option key={value}>{value}</option>)}</select>:<input name={name} type={type} min={type==='number'&&!['latitude','longitude'].includes(name)?'0':undefined} step={type==='number'?'any':undefined} defaultValue={editing[name]??''} required={name==='name'||name==='title'||name==='requirement'}/>}</label>)}</div>
-      <div className="resource-editor-actions"><button type="button" className="outline" onClick={()=>setEditing(null)}>Cancel</button><button className="primary">{editing.id?'Save changes':'Create record'}</button></div>
+      <div className="resource-editor-fields">
+        {meta.fields.map(([name,label,type='text',options])=>
+          <label className={`resource-field resource-field-${name}`} key={name}>
+            {label}
+            {type==='select'?(
+              <select name={name} defaultValue={String(editing[name]??options[0])}>
+                {options.map(value=><option key={value}>{value}</option>)}
+              </select>
+            ):type==='image'?(
+              <div style={{display:'flex',flexDirection:'column',gap:6}}>
+                <div style={{display:'flex',gap:8,alignItems:'center'}}>
+                  <input name={name} type="text" value={imageValues[name] ?? (editing[name] || '')} onChange={e=>setImageValues(prev=>({...prev,[name]:e.target.value}))} placeholder="URL or upload file below" style={{flex:1}}/>
+                  <label className="button outline" style={{margin:0,cursor:'pointer',fontSize:12,padding:'6px 12px',lineHeight:'1.2',display:'inline-flex',alignItems:'center',gap:4,background:'#fff',border:'1px solid #ccc',borderRadius:4}}>
+                    {uploading ? 'Uploading...' : '📁 Upload Image'}
+                    <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" style={{display:'none'}} onChange={e=>handleFileUpload(e, name)}/>
+                  </label>
+                </div>
+                {(imageValues[name] || editing[name]) && (
+                  <div style={{display:'flex',alignItems:'center',gap:8,marginTop:4}}>
+                    <img src={imageValues[name] || editing[name]} alt="Preview" style={{width:50,height:50,objectFit:'cover',borderRadius:6,border:'1px solid #ccc'}}/>
+                    <small style={{color:'#666'}}>Uploaded preview</small>
+                  </div>
+                )}
+              </div>
+            ):(
+              <input name={name} type={type} min={type==='number'&&!['latitude','longitude'].includes(name)?'0':undefined} step={type==='number'?'any':undefined} defaultValue={editing[name]??''} required={name==='name'||name==='title'||name==='requirement'}/>
+            )}
+          </label>
+        )}
+      </div>
+      <div className="resource-editor-actions"><button type="button" className="outline" onClick={()=>setEditing(null)}>Cancel</button><button className="primary" disabled={uploading}>{editing.id?'Save changes':'Create record'}</button></div>
     </form>}
     {error&&<div className="auth-error">{error}</div>}{loading?<LoadingState/>:<><article className="tablecard card"><DataTable rows={rows} columns={columns}/></article><div className="pagination"><small>{pagination.total} records · Page {pagination.page} of {pagination.totalPages}</small><span><button className="outline" disabled={pagination.page<=1} onClick={()=>load(pagination.page-1)}>Previous</button><button className="outline" disabled={pagination.page>=pagination.totalPages} onClick={()=>load(pagination.page+1)}>Next</button></span></div></>}
   </section>;

@@ -412,6 +412,15 @@ async function conversations(req, res) {
 async function createLead(req, res) {
   res.status(201).json(await repo.createLead(req.user.id, req.body));
 }
+async function wallet(req, res) {
+  const db = require("../../database");
+  res.json(await db.getCustomerWallet(req.user.id));
+}
+async function discountedProducts(req, res) {
+  const db = require("../../database");
+  res.json(await db.getDiscountedProducts());
+}
+
 module.exports = {
   dashboard,
   orderOptions,
@@ -466,4 +475,6 @@ module.exports = {
   aiChat,
   conversations,
   createLead,
+  wallet,
+  discountedProducts,
 };

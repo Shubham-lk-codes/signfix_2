@@ -21,7 +21,7 @@ async function health() { await getPool().query('SELECT 1'); return { mode: 'pos
 async function findUserByEmail(email) { const { rows } = await getPool().query(`SELECT u.id,u.name,u.email,u.status,u.verified_at AS "verifiedAt",u.password_hash AS "passwordHash",r.name AS role FROM users u JOIN roles r ON r.id=u.role_id WHERE LOWER(u.email)=$1 LIMIT 1`, [email]); return rows[0]; }
 
 const catalog = {
-  products: { table: 'products', select: 'id,name,category,description,image_url AS "imageUrl",pricing_method AS "pricingMethod",base_price AS price,status', search: ['name','category','description'], sort: ['id','name','category','base_price','status'] },
+  products: { table: 'products', select: 'id,name,category,description,image_url AS "imageUrl",pricing_method AS "pricingMethod",base_price AS price,status,is_discounted AS "isDiscounted"', search: ['name','category','description'], sort: ['id','name','category','base_price','status','is_discounted'] },
   categories: { table: 'product_categories', select: 'id,name,status', search: ['name'], sort: ['id','name','status'] },
   materials: { table: 'materials', select: 'id,name,description,image_url AS "imageUrl",pricing_method AS "pricingMethod",price_per_sqft AS price,status', search: ['name','description'], sort: ['id','name','price_per_sqft','status'] },
   lighting: { table: 'lighting_options', select: 'id,name,description,image_url AS "imageUrl",pricing_method AS "pricingMethod",price_per_sqft AS price,status', search: ['name','description'], sort: ['id','name','price_per_sqft','status'] },
@@ -48,7 +48,7 @@ const catalog = {
 function resource(name) { const value = catalog[name]; if (!value) throw Object.assign(new Error('Unsupported resource'), { status: 404 }); return value; }
 async function listCatalog(name, query = {}) { const item = resource(name); const page = Math.max(1, Number(query.page) || 1), pageSize = Math.min(100, Math.max(5, Number(query.pageSize) || 20)); const params = [], clauses = []; const search = String(query.search || '').trim(), status = String(query.status || '').trim(); if (search && item.search?.length) { params.push(`%${search}%`); clauses.push(`(${item.search.map(column => `LOWER(COALESCE(${column}::text,'')) LIKE LOWER($1)`).join(' OR ')})`); } if (status && item.sort?.includes('status')) { params.push(status); clauses.push(`status::text=$${params.length}`); } const where = clauses.length ? ` WHERE ${clauses.join(' AND ')}` : ''; const requestedSort = String(query.sort || 'id'), sort = item.sort?.includes(requestedSort) ? requestedSort : 'id'; const direction = String(query.direction).toLowerCase() === 'asc' ? 'ASC' : 'DESC'; const dataParams = [...params, pageSize, (page - 1) * pageSize]; const [count, result] = await Promise.all([getPool().query(`SELECT COUNT(*)::int total FROM ${item.table}${where}`, params), getPool().query(`SELECT ${item.select} FROM ${item.table}${where} ORDER BY ${sort} ${direction} LIMIT $${dataParams.length - 1} OFFSET $${dataParams.length}`, dataParams)]); const total=count.rows[0].total; return { data: result.rows, page, pageSize, total, totalPages: Math.max(1, Math.ceil(total / pageSize)) }; }
 const writableCatalog = {
-  products: { table: 'products', fields: { name: 'name', category: 'category', description: 'description', imageUrl:'image_url', pricingMethod: 'pricing_method', price:'base_price', status: 'status' } },
+  products: { table: 'products', fields: { name: 'name', category: 'category', description: 'description', imageUrl:'image_url', pricingMethod: 'pricing_method', price:'base_price', status: 'status', isDiscounted: 'is_discounted' } },
   categories: { table: 'product_categories', fields: { name: 'name', status: 'status' } },
   materials: { table: 'materials', fields: { name:'name',description:'description',imageUrl:'image_url',pricingMethod:'pricing_method',price:'price_per_sqft',status:'status' } },
   lighting: { table: 'lighting_options', fields: { name:'name',description:'description',imageUrl:'image_url',pricingMethod:'pricing_method',price:'price_per_sqft',status:'status' } },
@@ -68,7 +68,104 @@ async function updateCatalog(name, id, data, user) { const item = writable(name)
 async function deleteCatalog(name, id, user) { const item = writable(name); const hasStatus = Object.values(item.fields).includes('status'); const result = hasStatus ? await getPool().query(`UPDATE ${item.table} SET status=FALSE WHERE id=$1`, [id]) : await getPool().query(`DELETE FROM ${item.table} WHERE id=$1`, [id]); if (!result.rowCount) throw Object.assign(new Error('Resource not found'), { status: 404 }); await audit(user.id, `${name}.${hasStatus ? 'disable' : 'delete'}`, name, id, {}); }
 
 async function listOrders(user,query={}) { const params=[],clauses=[];if(user.role==='customer'){params.push(user.email);clauses.push(`u.email=$${params.length}`);}if(query.status){params.push(query.status);clauses.push(`o.status=$${params.length}`);}if(query.search){params.push(`%${query.search}%`);clauses.push(`(o.order_no ILIKE $${params.length} OR u.name ILIKE $${params.length} OR COALESCE(o.specifications->>'product','') ILIKE $${params.length})`);}const where=clauses.length?`WHERE ${clauses.join(' AND ')}`:'',limit=Math.min(100,Math.max(1,Number(query.limit)||100));params.push(limit);const {rows}=await getPool().query(`SELECT o.order_no AS id,u.name AS customer,o.specifications,o.estimated_price AS "estimatedPrice",o.status,o.created_at AS "createdAt",u.email AS "createdBy" FROM orders o JOIN customers c ON c.id=o.customer_id JOIN users u ON u.id=c.user_id ${where} ORDER BY o.created_at DESC LIMIT $${params.length}`,params);return rows.map(row=>({...row,...(row.specifications||{})}));}
-async function createOrder(user, data, orderNo) { const admin=['super_admin','admin'].includes(user.role);if(admin&&!data.customerId)throw Object.assign(new Error('customerId is required when an admin creates an order'),{status:422});const params=admin?[data.customerId]:[user.id];const lookup=admin?'SELECT id,user_id FROM customers WHERE id=$1':'SELECT id,user_id FROM customers WHERE user_id=$1';const customer=(await getPool().query(lookup,params)).rows[0];if(!customer)throw Object.assign(new Error('Customer profile not found'),{status:422});const price=await calculatePrice(data);const specifications={...data,customerId:undefined,estimatedPrice:undefined,priceBreakdown:price,area:price.area,areaUnit:price.areaUnit,priceLabel:price.label,priceNotice:price.notice};const {rows}=await getPool().query(`INSERT INTO orders(order_no,customer_id,specifications,estimated_price,status) VALUES($1,$2,$3::jsonb,$4,'under_review') RETURNING id,created_at`,[orderNo,customer.id,JSON.stringify(specifications),price.estimatedPrice]);await notifyCustomer(customer.user_id,'order.submitted','Order submitted',`Order ${orderNo} has been submitted.`,{orderNo});await audit(user.id,'order.create','order',rows[0].id,{orderNo,customerId:customer.id,estimatedPrice:price.estimatedPrice});return{...specifications,id:orderNo,estimatedPrice:price.estimatedPrice,status:'under_review',createdAt:rows[0].created_at};}
+async function getCustomerWallet(userId) {
+  const customer = (await getPool().query(`SELECT c.id FROM customers c JOIN users u ON u.id=c.user_id WHERE u.id=$1`, [userId])).rows[0];
+  if (!customer) throw Object.assign(new Error('Customer profile not found'), { status: 404 });
+  await getPool().query(`INSERT INTO customer_wallets(customer_id, balance, total_cashback_earned) VALUES($1, 0, 0) ON CONFLICT (customer_id) DO NOTHING`, [customer.id]);
+  const wallet = (await getPool().query(`SELECT id, balance, total_cashback_earned AS "totalCashbackEarned", updated_at AS "updatedAt" FROM customer_wallets WHERE customer_id=$1`, [customer.id])).rows[0];
+  const transactions = (await getPool().query(`SELECT id, order_id AS "orderId", quotation_id AS "quotationId", transaction_type AS "type", amount, balance_after AS "balanceAfter", description, created_at AS "createdAt" FROM wallet_transactions WHERE customer_id=$1 ORDER BY id DESC LIMIT 50`, [customer.id])).rows;
+  return {
+    customerId: customer.id,
+    balance: Number(wallet.balance),
+    totalCashbackEarned: Number(wallet.totalCashbackEarned),
+    updatedAt: wallet.updatedAt,
+    transactions: transactions.map(t => ({ ...t, amount: Number(t.amount), balanceAfter: Number(t.balanceAfter) })),
+  };
+}
+
+async function getDiscountedProducts() {
+  const { rows } = await getPool().query(
+    `SELECT id, name, category, description, image_url AS "imageUrl", pricing_method AS "pricingMethod", base_price AS price, status, is_discounted AS "isDiscounted" FROM products WHERE status=TRUE AND is_discounted=TRUE ORDER BY id`
+  );
+  return rows.map(r => ({ ...r, cashbackAmount: 250 }));
+}
+
+async function createOrder(user, data, orderNo) {
+  const admin = ['super_admin','admin'].includes(user.role);
+  if (admin && !data.customerId) throw Object.assign(new Error('customerId is required when an admin creates an order'), { status: 422 });
+  const params = admin ? [data.customerId] : [user.id];
+  const lookup = admin ? 'SELECT id,user_id FROM customers WHERE id=$1' : 'SELECT id,user_id FROM customers WHERE user_id=$1';
+  const customer = (await getPool().query(lookup, params)).rows[0];
+  if (!customer) throw Object.assign(new Error('Customer profile not found'), { status: 422 });
+
+  const price = await calculatePrice(data);
+
+  // Check if ordered product is marked as discounted
+  const productName = data.product;
+  const productRow = (await getPool().query(`SELECT id, name, is_discounted FROM products WHERE (name=$1 OR id::text=$1) AND status=TRUE LIMIT 1`, [productName])).rows[0];
+  const isEligibleDiscounted = Boolean(productRow && productRow.is_discounted);
+  const cashbackEarned = isEligibleDiscounted ? 250 : 0;
+
+  let walletDiscountApplied = 0;
+  if ((data.useWallet || data.applyWallet) && customer.id) {
+    await getPool().query(`INSERT INTO customer_wallets(customer_id, balance, total_cashback_earned) VALUES($1, 0, 0) ON CONFLICT (customer_id) DO NOTHING`, [customer.id]);
+    const wallet = (await getPool().query(`SELECT id, balance FROM customer_wallets WHERE customer_id=$1 FOR UPDATE`, [customer.id])).rows[0];
+    if (wallet && Number(wallet.balance) > 0) {
+      walletDiscountApplied = Math.min(Number(wallet.balance), price.estimatedPrice);
+      if (walletDiscountApplied > 0) {
+        const newBalance = Number(wallet.balance) - walletDiscountApplied;
+        await getPool().query(`UPDATE customer_wallets SET balance=$2, updated_at=NOW() WHERE id=$1`, [wallet.id, newBalance]);
+        await getPool().query(
+          `INSERT INTO wallet_transactions(wallet_id, customer_id, transaction_type, amount, balance_after, description) VALUES($1, $2, 'wallet_debit', $3, $4, $5)`,
+          [wallet.id, customer.id, walletDiscountApplied, newBalance, `Wallet balance applied to Order ${orderNo}`]
+        );
+      }
+    }
+  }
+
+  const finalEstimatedPrice = Math.max(0, price.estimatedPrice - walletDiscountApplied);
+
+  const specifications = {
+    ...data,
+    customerId: undefined,
+    estimatedPrice: undefined,
+    priceBreakdown: price,
+    area: price.area,
+    areaUnit: price.areaUnit,
+    priceLabel: price.label,
+    priceNotice: price.notice,
+    isDiscountedProduct: isEligibleDiscounted,
+    cashbackEarned,
+    walletDiscountApplied,
+    finalEstimatedPrice
+  };
+
+  const { rows } = await getPool().query(
+    `INSERT INTO orders(order_no,customer_id,specifications,estimated_price,status) VALUES($1,$2,$3::jsonb,$4,'under_review') RETURNING id,created_at`,
+    [orderNo, customer.id, JSON.stringify(specifications), finalEstimatedPrice]
+  );
+  const orderId = rows[0].id;
+
+  if (cashbackEarned > 0) {
+    await getPool().query(`INSERT INTO customer_wallets(customer_id, balance, total_cashback_earned) VALUES($1, 0, 0) ON CONFLICT (customer_id) DO NOTHING`, [customer.id]);
+    const wallet = (await getPool().query(`SELECT id, balance, total_cashback_earned FROM customer_wallets WHERE customer_id=$1 FOR UPDATE`, [customer.id])).rows[0];
+    if (wallet) {
+      const newBalance = Number(wallet.balance) + cashbackEarned;
+      const newTotalCashback = Number(wallet.total_cashback_earned) + cashbackEarned;
+      await getPool().query(`UPDATE customer_wallets SET balance=$2, total_cashback_earned=$3, updated_at=NOW() WHERE id=$1`, [wallet.id, newBalance, newTotalCashback]);
+      await getPool().query(
+        `INSERT INTO wallet_transactions(wallet_id, customer_id, order_id, transaction_type, amount, balance_after, description) VALUES($1, $2, $3, 'cashback_credit', $4, $5, $6)`,
+        [wallet.id, customer.id, orderId, cashbackEarned, newBalance, `Cashback ₹${cashbackEarned} credited for ordering discounted product (${productName}) - Order ${orderNo}`]
+      );
+      await notifyCustomer(customer.user_id, 'wallet.cashback', 'Cashback Credited!', `You earned ₹${cashbackEarned} cashback in your SignFix Wallet for ordering ${productName}!`, { orderNo, cashbackEarned });
+    }
+  } else {
+    await notifyCustomer(customer.user_id, 'order.submitted', 'Order submitted', `Order ${orderNo} has been submitted.`, { orderNo });
+  }
+
+  await audit(user.id, 'order.create', 'order', orderId, { orderNo, customerId: customer.id, estimatedPrice: finalEstimatedPrice, cashbackEarned, walletDiscountApplied });
+  return { ...specifications, id: orderNo, estimatedPrice: finalEstimatedPrice, status: 'under_review', createdAt: rows[0].created_at };
+}
 async function updateOrderStatus(orderNo, status, user) { const { rows } = await getPool().query('UPDATE orders o SET status=$2,updated_at=NOW() FROM customers c WHERE o.customer_id=c.id AND o.order_no=$1 RETURNING o.order_no AS id,o.status,c.user_id', [orderNo, status]); if (!rows[0]) throw Object.assign(new Error('Order not found'), { status: 404 }); const events={new:['order.updated','Order received'],under_review:['order.updated','Order under review'],quotation:['quotation.generated','Quotation in progress'],approved:['order.approved','Order approved'],production:['order.production_started','Production started'],ready:['order.ready','Order ready'],installation:['order.updated','Installation started'],completed:['order.updated','Order completed'],cancelled:['order.updated','Order cancelled']};if(events[status])await notifyCustomer(rows[0].user_id,events[status][0],events[status][1],`Order ${orderNo}: ${status.replaceAll('_',' ')}`,{orderNo,status});delete rows[0].user_id;await audit(user.id, 'order.status', 'order', null, { orderNo, status }); return rows[0]; }
 async function getOrder(orderNo,user){const params=[orderNo],customerClause=user.role==='customer'?(params.push(user.email),`AND u.email=$2`):'';const order=(await getPool().query(`SELECT o.id AS "databaseId",o.order_no AS id,u.name AS customer,u.email,o.specifications,o.estimated_price AS "estimatedPrice",o.status,o.admin_notes AS "adminNotes",o.installation_technician_id AS "technicianId",o.created_at AS "createdAt",tu.name AS "technicianName" FROM orders o JOIN customers c ON c.id=o.customer_id JOIN users u ON u.id=c.user_id LEFT JOIN technicians t ON t.id=o.installation_technician_id LEFT JOIN users tu ON tu.id=t.user_id WHERE o.order_no=$1 ${customerClause}`,params)).rows[0];if(!order)throw Object.assign(new Error('Order not found'),{status:404});const [quotations,designs,technicians]=await Promise.all([getPool().query('SELECT q.quotation_no AS "quotationNo",q.status,q.final_amount AS "finalAmount",q.valid_until AS "validUntil" FROM quotations q WHERE q.order_id=$1 ORDER BY q.id DESC',[order.databaseId]),getPool().query(`SELECT d.id,d.requirements,d.status,d.created_at AS "createdAt" FROM design_requests d WHERE d.order_id=$1 ORDER BY d.id DESC`,[order.databaseId]),getPool().query("SELECT t.id,u.name,u.mobile FROM technicians t JOIN users u ON u.id=t.user_id WHERE u.status='active' ORDER BY u.name")]);return {...order,...order.specifications,quotations:quotations.rows,designs:designs.rows,technicians:technicians.rows};}
 async function updateOrder(orderNo,data,user){
@@ -141,4 +238,4 @@ async function registerDeviceToken(userId, token, platform) { await getPool().qu
 async function notificationRecipients(audience) { const roles={customers:['customer'],technicians:['technician'],admins:['super_admin','admin','sales_manager','service_manager','technician_manager']};const params=[];let where="dt.active=TRUE AND u.status='active'";if(roles[audience]){params.push(roles[audience]);where+=' AND r.name=ANY($1)';}return (await getPool().query(`SELECT DISTINCT dt.token,u.id AS "userId" FROM device_tokens dt JOIN users u ON u.id=dt.user_id JOIN roles r ON r.id=u.role_id WHERE ${where}`,params)).rows; }
 async function createBulkNotifications(recipients, message, user) { if(!recipients.length)return;const ids=[...new Set(recipients.map(row=>row.userId))];await getPool().query(`INSERT INTO notifications(user_id,channel,title,body) SELECT unnest($1::bigint[]),$2,$3,$4`,[ids,message.channel,message.title,message.body]);await audit(user.id,'notification.send','notification',null,{recipients:ids.length,title:message.title}); }
 async function audit(userId, action, entityType, entityId, metadata) { await getPool().query('INSERT INTO audit_logs(user_id,action,entity_type,entity_id,metadata) VALUES($1,$2,$3,$4,$5::jsonb)', [userId, action, entityType, entityId, JSON.stringify(metadata)]); }
-module.exports = { isConfigured, getPool, health, findUserByEmail, listCatalog, createCatalog, updateCatalog, deleteCatalog, listOrders, createOrder, getOrder, updateOrder, updateOrderStatus, reviewOrderDesign, listServices, createService, updateService, listJobs, getJob, updateJobStatus, calculatePrice, listAdminCustomers, createAdminCustomer, getAdminCustomer, updateAdminCustomer, disableAdminCustomer, dashboard, report, registerDeviceToken, notificationRecipients, createBulkNotifications };
+module.exports = { isConfigured, getPool, health, findUserByEmail, listCatalog, createCatalog, updateCatalog, deleteCatalog, listOrders, createOrder, getOrder, updateOrder, updateOrderStatus, reviewOrderDesign, listServices, createService, updateService, listJobs, getJob, updateJobStatus, calculatePrice, listAdminCustomers, createAdminCustomer, getAdminCustomer, updateAdminCustomer, disableAdminCustomer, dashboard, report, registerDeviceToken, notificationRecipients, createBulkNotifications, getCustomerWallet, getDiscountedProducts };
