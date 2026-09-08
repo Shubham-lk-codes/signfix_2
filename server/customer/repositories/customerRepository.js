@@ -409,7 +409,7 @@ async function cancelOrder(userId, orderNo, reason) {
 }
 async function cancelService(userId, ticketNo, reason) {
   const { rows } = await pool().query(
-    `UPDATE service_tickets s SET status='cancelled',updated_at=NOW(),admin_notes=CONCAT_WS(E'\n',admin_notes,$3) FROM customers c WHERE s.customer_id=c.id AND c.user_id=$1 AND s.ticket_no=$2 AND s.status IN ('submitted','under_review','technician_assigned','assigned') RETURNING s.ticket_no AS id,s.status`,
+    `UPDATE service_tickets s SET status='cancelled',updated_at=NOW(),admin_notes=CONCAT_WS(E'\n',admin_notes,$3::text) FROM customers c WHERE s.customer_id=c.id AND c.user_id=$1 AND s.ticket_no=$2 AND s.status IN ('submitted','under_review','technician_assigned','assigned') RETURNING s.ticket_no AS id,s.status`,
     [userId, ticketNo, `Customer cancellation: ${reason}`],
   );
   if (!rows[0])
