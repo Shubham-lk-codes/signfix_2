@@ -337,7 +337,7 @@ ALTER TABLE quotations ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL 
 UPDATE quotations q SET customer_id=o.customer_id FROM orders o WHERE q.order_id=o.id AND q.customer_id IS NULL;
 UPDATE quotations SET status='sent' WHERE status='admin_approved';
 UPDATE quotations SET status='change_requested' WHERE status='changes_requested';
-UPDATE quotations SET status=COALESCE(status,'draft'),subtotal=COALESCE(subtotal,0),discount=COALESCE(discount,0),gst=COALESCE(gst,0),installation=COALESCE(installation,0),transportation=COALESCE(transportation,0),gst_rate=COALESCE(gst_rate,0),discount_amount=COALESCE(NULLIF(discount_amount,0),discount,0),discount_value=COALESCE(NULLIF(discount_value,0),discount,0),taxable_amount=COALESCE(NULLIF(taxable_amount,0),subtotal-discount,0),updated_at=COALESCE(updated_at,CURRENT_TIMESTAMP);
+UPDATE quotations SET status=COALESCE(status,'draft'),subtotal=COALESCE(subtotal,0),discount=COALESCE(discount,0),gst=COALESCE(gst,0),installation=COALESCE(installation,0),transportation=COALESCE(transportation,0),gst_rate=COALESCE(gst_rate,0),discount_amount=COALESCE(NULLIF(discount_amount,0),discount,0),discount_value=COALESCE(NULLIF(discount_value,0),discount,0),taxable_amount=GREATEST(0, COALESCE(NULLIF(taxable_amount,0),subtotal-discount,0)),updated_at=COALESCE(updated_at,CURRENT_TIMESTAMP);
 ALTER TABLE quotations ALTER COLUMN customer_id SET NOT NULL;
 ALTER TABLE quotations ALTER COLUMN status SET DEFAULT 'draft';
 ALTER TABLE quotations ALTER COLUMN status SET NOT NULL;
