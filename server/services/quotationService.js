@@ -620,7 +620,7 @@ async function customerAction(userId, quotationNo, action, comment) {
     if (!CUSTOMER_ACTION_STATUSES.includes(current.status)) throw httpError(`Quotation cannot be ${action.replace('_', ' ')} in its current state`, 409, 'QUOTATION_STATE_CONFLICT');
     if (action === 'request_changes' && !String(comment || '').trim()) throw httpError('A change request comment is required');
     await client.query(
-      `UPDATE quotations SET status=$2,approved_at=CASE WHEN $2='approved' THEN NOW() ELSE approved_at END,rejected_at=CASE WHEN $2='rejected' THEN NOW() ELSE rejected_at END,change_requested_at=CASE WHEN $2='change_requested' THEN NOW() ELSE change_requested_at END,change_request_comment=CASE WHEN $2='change_requested' THEN $3 ELSE change_request_comment END,rejection_reason=CASE WHEN $2='rejected' THEN $3 ELSE rejection_reason END,lock_version=lock_version+1,updated_at=NOW() WHERE id=$1`,
+      `UPDATE quotations SET status=$2::text,approved_at=CASE WHEN $2::text='approved' THEN NOW() ELSE approved_at END,rejected_at=CASE WHEN $2::text='rejected' THEN NOW() ELSE rejected_at END,change_requested_at=CASE WHEN $2::text='change_requested' THEN NOW() ELSE change_requested_at END,change_request_comment=CASE WHEN $2::text='change_requested' THEN $3::text ELSE change_request_comment END,rejection_reason=CASE WHEN $2::text='rejected' THEN $3::text ELSE rejection_reason END,lock_version=lock_version+1,updated_at=NOW() WHERE id=$1`,
       [current.id, targetStatus, comment || null],
     );
     if (action === 'approve') await client.query("UPDATE orders SET status='approved',updated_at=NOW() WHERE id=$1 AND status='quotation'", [current.orderId]);

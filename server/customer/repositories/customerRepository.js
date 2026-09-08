@@ -607,7 +607,7 @@ async function ownedPayment(userId, id) {
 async function createPayment(userId, data) {
   const reference = `PAY-${crypto.randomUUID()}`;
   const { rows } = await pool().query(
-    `INSERT INTO payments(quotation_id,amount,status,reference,payment_type,provider,currency,metadata) SELECT q.id,CASE WHEN $3='advance' THEN ROUND(q.final_amount*.25,2) ELSE q.final_amount END,'created',$4,$3,COALESCE(NULLIF($5,''),'manual'),'INR',jsonb_build_object('idempotencyKey',$6) FROM quotations q JOIN orders o ON o.id=q.order_id JOIN customers c ON c.id=o.customer_id WHERE c.user_id=$1 AND q.quotation_no=$2 AND q.status='approved' AND c.payments_enabled=TRUE AND NOT EXISTS(SELECT 1 FROM payments p WHERE p.metadata->>'idempotencyKey'=$6) RETURNING id`,
+    `INSERT INTO payments(quotation_id,amount,status,reference,payment_type,provider,currency,metadata) SELECT q.id,CASE WHEN $3::text='advance' THEN ROUND(q.final_amount*.25,2) ELSE q.final_amount END,'created',$4,$3,COALESCE(NULLIF($5,''),'manual'),'INR',jsonb_build_object('idempotencyKey',$6) FROM quotations q JOIN orders o ON o.id=q.order_id JOIN customers c ON c.id=o.customer_id WHERE c.user_id=$1 AND q.quotation_no=$2 AND q.status='approved' AND c.payments_enabled=TRUE AND NOT EXISTS(SELECT 1 FROM payments p WHERE p.metadata->>'idempotencyKey'=$6) RETURNING id`,
     [
       userId,
       data.quotationNo,
@@ -683,7 +683,7 @@ async function verifyPayment(userId, id, data) {
   const current = await ownedPayment(userId, id);
   verifyGatewayProof(current, data, data.status);
   await pool().query(
-    `UPDATE payments SET status=$2,provider_payment_id=$3,verified_at=NOW(),captured_at=CASE WHEN $2='captured' THEN COALESCE(captured_at,NOW()) ELSE captured_at END,updated_at=NOW() WHERE id=$1`,
+    `UPDATE payments SET status=$2::text,provider_payment_id=$3,verified_at=NOW(),captured_at=CASE WHEN $2::text='captured' THEN COALESCE(captured_at,NOW()) ELSE captured_at END,updated_at=NOW() WHERE id=$1`,
     [id, data.status, data.providerPaymentId],
   );
   return ownedPayment(userId, id);
