@@ -1,8 +1,9 @@
 # SignFix production deployment
 
 This deployment keeps one Node process on `127.0.0.1:5000`. Express serves the
-API at `/` and `/api/*`, plus the Vite admin build at `/admin/*`. The public web
-server terminates the existing TLS certificate and proxies requests to Node.
+API at `/api/*` and the same Vite application at both `/` and `/admin/*`. The
+public web server terminates the existing TLS certificate and proxies requests
+to Node.
 
 ## Production environment
 
@@ -44,7 +45,7 @@ then run `pm2 save` once more. The process name is `signfix-api`. Diagnose it wi
 `pm2 status`, `pm2 logs signfix-api --lines 200`, and `pm2 describe signfix-api`.
 
 The production process deliberately refuses to start when `DATABASE_URL`, a
-32-character `JWT_SECRET`, or `dist/admin/index.html` is missing. Check
+32-character `JWT_SECRET`, or `dist/index.html` is missing. Check
 `pm2 logs signfix-api --lines 200` (or the cPanel application log) when the
 public web server reports 503.
 
@@ -95,23 +96,42 @@ mapping to `127.0.0.1:5000`.
 
 The `app.js` entry point exports the Express application for Passenger and
 replaces the generated cPanel page that says `It works! NodeJS ...`. Run
-`npm run build` after every upload because `dist/admin` is generated and
-intentionally not committed. Do not add an `.htaccess` proxy until the provider
-confirms that proxy directives are allowed.
+`npm run build` after every upload because `dist` is generated and intentionally
+not committed. Do not add an `.htaccess` proxy until the provider confirms that
+proxy directives are allowed.
+
+## Render and Vercel
+
+Render uses `render.yaml`: `npm ci` runs the project's `postinstall` build and
+creates `dist`, then the Node service exposes the SPA and API together. The same
+hook also protects existing Render/cPanel setups whose build command is still
+only `npm install`. Keep the Render environment values for `DATABASE_URL` and
+`JWT_SECRET` configured in the dashboard.
+
+Vercel publishes `dist`. Its rewrites keep `/`, `/admin`, and nested browser
+routes on the SPA, while `/api/*` and `/socket.io/*` are proxied to
+`https://signfix-2.onrender.com`. Deploy Render before Vercel when both are
+being updated so the frontend never targets an older API.
 
 ## Validation
 
 ```bash
-curl -fsS http://127.0.0.1:5000/
+curl -fsSI http://127.0.0.1:5000/
 curl -fsS http://127.0.0.1:5000/api/health
 curl -fsSI http://127.0.0.1:5000/admin
 curl -fsSI http://127.0.0.1:5000/admin/dashboard
-curl -fsS https://signfix.me/
+curl -fsSI https://signfix.me/
 curl -fsS https://signfix.me/api/health
 curl -fsSI https://signfix.me/admin
 curl -fsSI https://signfix.me/admin/dashboard
 curl -i -H 'Origin: https://signfix.me' https://signfix.me/api/health
 curl -i -H 'Origin: https://untrusted.example' https://signfix.me/api/health
+curl -fsSI https://signfix-2.vercel.app/
+curl -fsSI https://signfix-2.vercel.app/admin
+curl -fsS https://signfix-2.vercel.app/api/health
+curl -fsSI https://signfix-2.onrender.com/
+curl -fsSI https://signfix-2.onrender.com/admin
+curl -fsS https://signfix-2.onrender.com/api/health
 openssl s_client -connect signfix.me:443 -servername signfix.me </dev/null
 pm2 restart signfix-api && curl -fsS http://127.0.0.1:5000/api/health
 ```

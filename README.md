@@ -57,10 +57,12 @@ Never commit `.env` or use the demo credentials in production.
 
 ## Production deployment
 
-The production Vite build is emitted to `dist/admin` with asset URLs rooted at
-`/admin/`. Express serves that build (including SPA fallbacks) and the API from a
-single localhost-only process. See [`docs/production-deployment.md`](docs/production-deployment.md)
-for PM2, environment, reverse-proxy, SSL-preservation, and validation commands.
+The production Vite build is emitted to `dist` with host-rooted asset URLs.
+Express serves the same SPA at both `/` and `/admin` (including deep-link
+fallbacks) and serves the API below `/api` from the same process. Vercel proxies
+its `/api/*` requests to the Render service. See
+[`docs/production-deployment.md`](docs/production-deployment.md) for Render,
+Vercel, PM2, Passenger/cPanel, reverse-proxy, and validation details.
 
 ### Razorpay payments
 

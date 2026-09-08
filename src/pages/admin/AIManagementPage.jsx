@@ -41,8 +41,12 @@ export default function AIManagementPage() {
     load();
   }, [tab]);
   useEffect(() => {
+    const defaultRealtimeOrigin =
+      window.location.hostname === "signfix-2.vercel.app"
+        ? "https://signfix-2.onrender.com"
+        : window.location.origin;
     const socket = io(
-      (import.meta.env.VITE_API_URL || window.location.origin).replace(
+      (import.meta.env.VITE_API_URL || defaultRealtimeOrigin).replace(
         /\/api\/?$/,
         "",
       ),

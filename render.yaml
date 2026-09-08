@@ -3,14 +3,20 @@ services:
     name: signfix-2
     runtime: node
     plan: free
-    buildCommand: npm install
-    startCommand: npm run server
+    buildCommand: npm ci
+    startCommand: npm start
     healthCheckPath: /api/health
     envVars:
       - key: NODE_ENV
         value: production
+      - key: HOST
+        value: 0.0.0.0
       - key: CORS_ORIGIN
-        value: '*'
+        value: https://signfix.me,https://www.signfix.me,https://signfix-2.vercel.app,https://signfix-2.onrender.com
+      - key: APP_URL
+        value: https://signfix-2.onrender.com/admin
+      - key: PUBLIC_APP_URL
+        value: https://signfix.me
       - key: DATABASE_URL
         sync: false
       - key: JWT_SECRET

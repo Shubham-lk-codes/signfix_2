@@ -2,10 +2,12 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
 export default defineConfig({
-  base: '/admin/',
+  // Keep asset URLs rooted at the host so the same bundle can be opened from
+  // both `/` and `/admin` (including nested SPA routes on either prefix).
+  base: '/',
   plugins: [react()],
   build: {
-    outDir: 'dist/admin',
+    outDir: 'dist',
     emptyOutDir: true,
   },
   server: {

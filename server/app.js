@@ -10,7 +10,18 @@ const path = require('path');
 fs.mkdirSync(uploadDir, { recursive: true });
 const app = express();
 app.set('trust proxy', 1);
-app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: 'cross-origin' },
+  contentSecurityPolicy: {
+    directives: {
+      // Uploaded files and generated concepts can be returned as HTTPS or blob
+      // URLs, while realtime updates may connect to a separately hosted API.
+      imgSrc: ["'self'", 'data:', 'blob:', 'https:'],
+      connectSrc: ["'self'", 'https:', 'wss:'],
+      workerSrc: ["'self'", 'blob:'],
+    },
+  },
+}));
 app.use(cors({
   origin(origin, callback) {
     if (isCorsOriginAllowed(origin)) return callback(null, true);
@@ -20,21 +31,25 @@ app.use(cors({
 app.use(express.json({limit:'2mb',verify:(req,_res,buffer)=>{if(req.originalUrl.startsWith('/api/payments/webhook'))req.rawBody=buffer;}}));
 app.use('/api',rateLimit({windowMs:15*60*1000,max:1000}));
 app.use('/api', routes);
-app.get('/', (_req, res) => res.json({ name: 'SignFix API', status: 'ok', health: '/api/health' }));
+// Never let an unknown API request fall through to the SPA HTML response.
+app.use('/api', notFound);
 if (process.env.NODE_ENV === 'production') {
-  const adminBuild = path.resolve(__dirname, '../dist/admin');
-  const adminIndex = path.join(adminBuild, 'index.html');
-  if (!fs.existsSync(adminIndex)) {
-    throw new Error(`Admin production build is missing at ${adminIndex}; run npm run build before starting the server`);
+  const webBuild = path.resolve(__dirname, '../dist');
+  const webIndex = path.join(webBuild, 'index.html');
+  if (!fs.existsSync(webIndex)) {
+    throw new Error(`Production build is missing at ${webIndex}; run npm run build before starting the server`);
   }
-  app.use('/admin', express.static(adminBuild, { index: false, maxAge: '1y', immutable: true }));
-  app.get(['/admin', '/admin/*path'], (_req, res, next) => {
-    res.sendFile(adminIndex, (error) => error && next(error));
+  app.use('/assets', express.static(path.join(webBuild, 'assets'), { maxAge: '1y', immutable: true }));
+  app.use(express.static(webBuild, { index: false, maxAge: '1h' }));
+  // The React router deliberately supports both the canonical root URL and
+  // the legacy `/admin` prefix. The fallback also preserves deep links and QR
+  // verification URLs on Render, Passenger/cPanel, and reverse proxies.
+  app.get(['/', '/*path'], (_req, res, next) => {
+    res.set('Cache-Control', 'no-cache');
+    res.sendFile(webIndex, (error) => error && next(error));
   });
-  // Preserve existing public QR links while the admin bundle is hosted below /admin.
-  app.get('/asset/scan/:token', (_req, res, next) => {
-    res.sendFile(adminIndex, (error) => error && next(error));
-  });
+} else {
+  app.get('/', (_req, res) => res.json({ name: 'SignFix API', status: 'ok', health: '/api/health' }));
 }
 app.use(notFound);
 app.use(errorHandler);

@@ -10,6 +10,7 @@
     "dev": "node server/dev.js",
     "dev:frontend": "vite --config vite.config.mjs",
     "build": "vite build",
+    "postinstall": "npm run build",
     "test": "vitest run",
     "start": "node server/index.js",
     "server": "node server/index.js"
