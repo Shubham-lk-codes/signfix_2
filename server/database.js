@@ -87,7 +87,7 @@ async function getDiscountedProducts() {
   const { rows } = await getPool().query(
     `SELECT id, name, category, description, image_url AS "imageUrl", pricing_method AS "pricingMethod", base_price AS price, status, is_discounted AS "isDiscounted" FROM products WHERE status=TRUE AND is_discounted=TRUE ORDER BY id`
   );
-  return rows.map(r => ({ ...r, cashbackAmount: 250 }));
+  return rows.map(r => ({ ...r, cashbackAmount: 200 }));
 }
 
 async function getDiscountedSliderImages() {
@@ -101,9 +101,9 @@ async function getDiscountedSliderImages() {
     description: r.description,
     imageUrl: r.imageUrl || null,
     price: Number(r.price || 0),
-    cashbackAmount: 250,
+    cashbackAmount: 200,
     isDiscounted: true,
-    cashbackBadge: '₹250 Cashback'
+    cashbackBadge: '₹200 Cashback'
   }));
 }
 
@@ -121,7 +121,7 @@ async function createOrder(user, data, orderNo) {
   const productName = data.product;
   const productRow = (await getPool().query(`SELECT id, name, is_discounted FROM products WHERE (name=$1 OR id::text=$1) AND status=TRUE LIMIT 1`, [productName])).rows[0];
   const isEligibleDiscounted = Boolean(productRow && productRow.is_discounted);
-  const cashbackEarned = isEligibleDiscounted ? 250 : 0;
+  const cashbackEarned = isEligibleDiscounted ? 200 : 0;
 
   let walletDiscountApplied = 0;
   if ((data.useWallet || data.applyWallet) && customer.id) {

@@ -21,7 +21,7 @@ function DiscountedProductsSlider({ products }) {
           <span>🔥</span> Exclusive Discounted Products
         </h3>
         <span style={{ background: '#22c55e', color: '#0f172a', fontWeight: 'bold', fontSize: 12, padding: '4px 10px', borderRadius: 20 }}>
-          ₹250 CASHBACK PER ELIGIBLE PRODUCT
+          ₹200 CASHBACK PER ELIGIBLE PRODUCT
         </span>
       </div>
 

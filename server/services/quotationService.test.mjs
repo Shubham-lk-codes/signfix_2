@@ -20,7 +20,7 @@ describe('quotation authoritative pricing', () => {
     }, policy);
 
     expect(result).toMatchObject({
-      subtotal: 250,
+      subtotal: 200,
       itemDiscountAmount: 20,
       quoteDiscountAmount: 20,
       discountAmount: 40,
