@@ -33,12 +33,12 @@ app.use('/api',rateLimit({windowMs:15*60*1000,max:1000}));
 app.use('/api', routes);
 // Never let an unknown API request fall through to the SPA HTML response.
 app.use('/api', notFound);
-if (process.env.NODE_ENV === 'production') {
-  const webBuild = path.resolve(__dirname, '../dist');
-  const webIndex = path.join(webBuild, 'index.html');
-  if (!fs.existsSync(webIndex)) {
-    throw new Error(`Production build is missing at ${webIndex}; run npm run build before starting the server`);
-  }
+const webBuild = path.resolve(__dirname, '../dist');
+const webIndex = path.join(webBuild, 'index.html');
+if (fs.existsSync(webIndex)) {
+  // CloudLinux/Passenger does not consistently expose NODE_ENV to the app.
+  // A completed web build is therefore the reliable signal that this process
+  // should serve the SPA. Render already creates the same build during deploy.
   app.use('/assets', express.static(path.join(webBuild, 'assets'), { maxAge: '1y', immutable: true }));
   app.use(express.static(webBuild, { index: false, maxAge: '1h' }));
   // The React router deliberately supports both the canonical root URL and
@@ -50,6 +50,8 @@ if (process.env.NODE_ENV === 'production') {
     res.set('Cache-Control', 'no-cache');
     res.sendFile(webIndex, (error) => error && next(error));
   });
+} else if (process.env.NODE_ENV === 'production') {
+  throw new Error(`Production build is missing at ${webIndex}; run npm run build before starting the server`);
 } else {
   app.get('/', (_req, res) => res.json({ name: 'SignFix API', status: 'ok', health: '/api/health' }));
 }
