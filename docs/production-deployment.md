@@ -105,8 +105,10 @@ proxy directives are allowed.
 Render uses `render.yaml`: `npm ci` runs the project's `postinstall` build and
 creates `dist`, then the Node service exposes the SPA and API together. The same
 hook also protects existing Render/cPanel setups whose build command is still
-only `npm install`. Keep the Render environment values for `DATABASE_URL` and
-`JWT_SECRET` configured in the dashboard.
+only `npm install`. The hook uses npm's original working directory because
+CloudLinux runs lifecycle scripts from its `nodevenv` library directory. Keep
+the Render environment values for `DATABASE_URL` and `JWT_SECRET` configured in
+the dashboard.
 
 Vercel publishes `dist`. Its rewrites keep `/`, `/admin`, and nested browser
 routes on the SPA, while `/api/*` and `/socket.io/*` are proxied to
