@@ -44,7 +44,9 @@ if (process.env.NODE_ENV === 'production') {
   // The React router deliberately supports both the canonical root URL and
   // the legacy `/admin` prefix. The fallback also preserves deep links and QR
   // verification URLs on Render, Passenger/cPanel, and reverse proxies.
-  app.get(['/', '/*path'], (_req, res, next) => {
+  // A regular expression keeps this SPA fallback compatible with both
+  // Express 4 and Express 5, whose string wildcard syntax differs.
+  app.get(/.*/, (_req, res, next) => {
     res.set('Cache-Control', 'no-cache');
     res.sendFile(webIndex, (error) => error && next(error));
   });
