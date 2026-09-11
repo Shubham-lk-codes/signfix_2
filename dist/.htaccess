@@ -1,0 +1,52 @@
+# SignFix — static export (Next.js `output: "export"`) on Apache
+
+RewriteEngine On
+
+# 1. Force HTTPS
+RewriteCond %{HTTPS} off
+RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+# 2. Force www (canonical host is www.signfix.in — update here if that changes)
+RewriteCond %{HTTP_HOST} ^signfix\.in$ [NC]
+RewriteRule ^(.*)$ https://www.signfix.in/$1 [L,R=301]
+
+# 3. Drop a trailing slash on any URL other than the homepage
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteCond %{REQUEST_URI} ^/(.+)/$
+RewriteRule ^(.+)/$ /$1 [R=301,L]
+
+# 4. Serve the pre-rendered .html file for a clean URL (e.g. /about -> about.html)
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteCond %{REQUEST_FILENAME}\.html -f
+RewriteRule ^(.*)$ $1.html [L]
+
+# 5. Custom 404
+ErrorDocument 404 /404.html
+
+# 6. Directory listing off
+Options -Indexes
+
+# 7. Security headers
+<IfModule mod_headers.c>
+  Header set X-Content-Type-Options "nosniff"
+  Header set X-Frame-Options "SAMEORIGIN"
+  Header set Referrer-Policy "strict-origin-when-cross-origin"
+</IfModule>
+
+# 8. Compression
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/html text/css application/javascript application/json image/svg+xml
+</IfModule>
+
+# 9. Caching — long cache for hashed Next.js assets, short/no cache for HTML
+<IfModule mod_expires.c>
+  ExpiresActive On
+  ExpiresByType text/html "access plus 0 seconds"
+  ExpiresByType application/javascript "access plus 1 year"
+  ExpiresByType text/css "access plus 1 year"
+  ExpiresByType image/jpeg "access plus 1 year"
+  ExpiresByType image/png "access plus 1 year"
+  ExpiresByType image/svg+xml "access plus 1 year"
+  ExpiresByType font/woff2 "access plus 1 year"
+</IfModule>

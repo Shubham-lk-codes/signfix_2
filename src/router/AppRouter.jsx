@@ -7,17 +7,43 @@ import AdminRouter from './admin/AdminRouter';
 import TechnicianRouter from './technician/TechnicianRouter';
 import QrAssetPage from '../pages/public/QrAssetPage';
 import CustomerPortalPage from '../pages/customer/CustomerPortalPage';
+import WebRouter from '../web/WebRouter';
 
 export default function AppRouter() {
   const { user, loading, logout } = useAuth();
   const { path, navigate } = useRoute();
-  const qrMatch=path.match(/^\/asset\/scan\/([a-f0-9]{64})$/);
-  if(qrMatch)return <QrAssetPage token={qrMatch[1]}/>;
-  if (loading) return <LoadingState label="Checking session…" />;
-  if (!user) return <LoginPage navigate={navigate} />;
-  const adminRoles = ['super_admin','admin','sales_manager','service_manager','technician_manager','support_agent'];
-  if (user.role === 'technician') return <TechnicianRouter path={path} navigate={navigate} />;
-  if (user.role === 'customer') return <CustomerPortalPage logout={logout}/>;
-  if (!adminRoles.includes(user.role)) return <div className="auth-page"><section className="auth-card"><h1>Admin access required</h1><p>This web application is available only to authorized SignFix administrators.</p><button className="primary" onClick={logout}>Return to admin login</button></section></div>;
-  return <AdminRouter path={path} navigate={navigate} />;
+
+  const qrMatch = path.match(/^\/asset\/scan\/([a-f0-9]{64})$/);
+  if (qrMatch) return <QrAssetPage token={qrMatch[1]} />;
+
+  const isAdminRoute = path === '/admin' || path.startsWith('/admin/') || path === '/login';
+
+  if (isAdminRoute) {
+    if (loading) return <LoadingState label="Checking session…" />;
+    if (!user) return <LoginPage navigate={navigate} />;
+
+    const adminSubPath = path === '/admin' || path === '/admin/' || path === '/login' 
+      ? '/' 
+      : path.startsWith('/admin/') 
+        ? path.slice(6) 
+        : path;
+
+    const adminRoles = ['super_admin', 'admin', 'sales_manager', 'service_manager', 'technician_manager', 'support_agent'];
+    if (user.role === 'technician') return <TechnicianRouter path={adminSubPath} navigate={navigate} />;
+    if (user.role === 'customer') return <CustomerPortalPage logout={logout} />;
+    if (!adminRoles.includes(user.role)) {
+      return (
+        <div className="auth-page">
+          <section className="auth-card">
+            <h1>Admin access required</h1>
+            <p>This web application is available only to authorized SignFix administrators.</p>
+            <button className="primary" onClick={logout}>Return to admin login</button>
+          </section>
+        </div>
+      );
+    }
+    return <AdminRouter path={adminSubPath} navigate={navigate} />;
+  }
+
+  return <WebRouter path={path} navigate={navigate} />;
 }

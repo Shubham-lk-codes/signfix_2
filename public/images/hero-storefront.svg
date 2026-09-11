@@ -1,0 +1,120 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 675" width="100%" height="100%">
+  <defs>
+    <!-- Background Gradients -->
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#040d18"/>
+      <stop offset="50%" stop-color="#071a2d"/>
+      <stop offset="100%" stop-color="#0b243b"/>
+    </linearGradient>
+    
+    <!-- LED Glow Filters -->
+    <filter id="amberGlow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="12" result="blur1"/>
+      <feGaussianBlur stdDeviation="24" result="blur2"/>
+      <feMerge>
+        <feMergeNode in="blur2"/>
+        <feMergeNode in="blur1"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    
+    <filter id="cyanGlow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="10" result="blur1"/>
+      <feGaussianBlur stdDeviation="20" result="blur2"/>
+      <feMerge>
+        <feMergeNode in="blur2"/>
+        <feMergeNode in="blur1"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    
+    <linearGradient id="metalGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#2a3d52"/>
+      <stop offset="50%" stop-color="#152434"/>
+      <stop offset="100%" stop-color="#0c1724"/>
+    </linearGradient>
+
+    <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#ffb000"/>
+      <stop offset="50%" stop-color="#ffd266"/>
+      <stop offset="100%" stop-color="#ff9900"/>
+    </linearGradient>
+
+    <linearGradient id="cyanGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#00d2ff"/>
+      <stop offset="100%" stop-color="#0088ff"/>
+    </linearGradient>
+    
+    <!-- Building Grid Pattern -->
+    <pattern id="gridPattern" width="40" height="60" patternUnits="userSpaceOnUse">
+      <rect width="38" height="58" fill="none" stroke="rgba(255,255,255,0.03)" stroke-width="1"/>
+      <rect x="5" y="8" width="28" height="42" fill="rgba(255, 176, 0, 0.04)" rx="2"/>
+    </pattern>
+  </defs>
+
+  <!-- Night Sky & Building Exterior Background -->
+  <rect width="1200" height="675" fill="url(#bgGrad)"/>
+  
+  <!-- Architectural Facade Columns -->
+  <rect x="0" y="0" width="1200" height="675" fill="url(#gridPattern)"/>
+  
+  <g opacity="0.15">
+    <line x1="150" y1="0" x2="150" y2="675" stroke="#ffffff" stroke-width="2"/>
+    <line x1="450" y1="0" x2="450" y2="675" stroke="#ffffff" stroke-width="2"/>
+    <line x1="750" y1="0" x2="750" y2="675" stroke="#ffffff" stroke-width="2"/>
+    <line x1="1050" y1="0" x2="1050" y2="675" stroke="#ffffff" stroke-width="2"/>
+  </g>
+  
+  <!-- Wet Ground Reflection Line -->
+  <rect x="0" y="520" width="1200" height="155" fill="#020810" opacity="0.9"/>
+  <ellipse cx="600" cy="540" rx="450" ry="25" fill="#ffb000" opacity="0.12" filter="url(#amberGlow)"/>
+  <ellipse cx="600" cy="560" rx="350" ry="15" fill="#00d2ff" opacity="0.1" filter="url(#cyanGlow)"/>
+
+  <!-- Storefront Facade Frame -->
+  <rect x="180" y="100" width="840" height="380" rx="16" fill="url(#metalGrad)" stroke="#1e354d" stroke-width="4"/>
+  
+  <!-- Glass Window Panels Behind Sign -->
+  <rect x="200" y="120" width="800" height="340" rx="8" fill="#061322" stroke="rgba(255,255,255,0.08)" stroke-width="2"/>
+  
+  <!-- Glass Reflections -->
+  <path d="M 200 120 L 450 120 L 200 370 Z" fill="rgba(255,255,255,0.03)"/>
+  <path d="M 500 120 L 750 120 L 300 460 L 200 460 Z" fill="rgba(255,255,255,0.02)"/>
+
+  <!-- 3D Halo Backlight Aura -->
+  <ellipse cx="600" cy="270" rx="320" ry="100" fill="#ffb000" opacity="0.25" filter="url(#amberGlow)"/>
+  <ellipse cx="600" cy="330" rx="280" ry="60" fill="#00d2ff" opacity="0.2" filter="url(#cyanGlow)"/>
+
+  <!-- Main 3D Signboard Panel -->
+  <rect x="260" y="170" width="680" height="230" rx="12" fill="#0b1d30" stroke="#ffb000" stroke-width="2" filter="url(#amberGlow)" opacity="0.95"/>
+  <rect x="264" y="174" width="672" height="222" rx="10" fill="#071524" stroke="rgba(255,255,255,0.1)" stroke-width="1"/>
+
+  <!-- 3D Emblem / Logo Graphic -->
+  <g transform="translate(600, 235)">
+    <!-- Hexagon Outer Glow Frame -->
+    <polygon points="0,-42 36,-21 36,21 0,42 -36,21 -36,-21" fill="none" stroke="url(#goldGrad)" stroke-width="6" filter="url(#amberGlow)"/>
+    <polygon points="0,-42 36,-21 36,21 0,42 -36,21 -36,-21" fill="#071a2d"/>
+    <path d="M-15,-10 L0,-25 L15,-10 L15,15 L0,25 L-15,15 Z" fill="url(#cyanGrad)" filter="url(#cyanGlow)"/>
+    <path d="M-8,-5 L0,-13 L8,-5 L8,8 L0,13 L-8,8 Z" fill="#ffffff"/>
+  </g>
+
+  <!-- 3D Illuminated Typography: SIGNFIX -->
+  <g filter="url(#amberGlow)">
+    <!-- Shadow / 3D Extrusion -->
+    <text x="604" y="344" text-anchor="middle" font-family="'Bricolage Grotesque', 'Arial Black', sans-serif" font-weight="900" font-size="52" letter-spacing="10" fill="#a86e00">SIGNFIX</text>
+    <!-- Front Face -->
+    <text x="600" y="340" text-anchor="middle" font-family="'Bricolage Grotesque', 'Arial Black', sans-serif" font-weight="900" font-size="52" letter-spacing="10" fill="url(#goldGrad)">SIGNFIX</text>
+  </g>
+
+  <!-- Subtitle Tagline -->
+  <text x="600" y="375" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-weight="600" font-size="14" letter-spacing="6" fill="#00d2ff" filter="url(#cyanGlow)">PREMIUM 3D LED SIGNAGE &amp; RESTORATION</text>
+
+  <!-- Spotlight Beams from top -->
+  <polygon points="400,100 440,170 360,170" fill="rgba(255, 176, 0, 0.15)"/>
+  <polygon points="800,100 840,170 760,170" fill="rgba(255, 176, 0, 0.15)"/>
+  <circle cx="400" cy="100" r="8" fill="#ffb000" filter="url(#amberGlow)"/>
+  <circle cx="800" cy="100" r="8" fill="#ffb000" filter="url(#amberGlow)"/>
+
+  <!-- Badge Overlay -->
+  <rect x="290" y="190" width="120" height="26" rx="13" fill="#ffb000" opacity="0.9"/>
+  <text x="350" y="207" text-anchor="middle" font-family="'Public Sans', sans-serif" font-weight="800" font-size="11" fill="#071a2d" letter-spacing="1">HYDERABAD</text>
+</svg>

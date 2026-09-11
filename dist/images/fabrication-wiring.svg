@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600" width="100%" height="100%">
+  <defs>
+    <linearGradient id="wireBg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0b1329"/>
+      <stop offset="100%" stop-color="#14213d"/>
+    </linearGradient>
+    <filter id="ledGlow">
+      <feGaussianBlur stdDeviation="6" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <rect width="800" height="600" fill="url(#wireBg)"/>
+
+  <!-- Channel Letter Casing Open Frame -->
+  <path d="M 150 120 L 650 120 L 650 480 L 520 480 L 520 220 L 280 220 L 280 480 L 150 480 Z" fill="#1b263b" stroke="#415a77" stroke-width="8"/>
+
+  <!-- LED Module Strips Inside Channel Letter -->
+  <g fill="#ffb000" filter="url(#ledGlow)">
+    <rect x="180" y="150" width="20" height="12" rx="2"/>
+    <rect x="220" y="150" width="20" height="12" rx="2"/>
+    <rect x="260" y="150" width="20" height="12" rx="2"/>
+    <rect x="300" y="150" width="20" height="12" rx="2"/>
+    <rect x="340" y="150" width="20" height="12" rx="2"/>
+    <rect x="380" y="150" width="20" height="12" rx="2"/>
+    <rect x="420" y="150" width="20" height="12" rx="2"/>
+    <rect x="460" y="150" width="20" height="12" rx="2"/>
+    <rect x="500" y="150" width="20" height="12" rx="2"/>
+    <rect x="540" y="150" width="20" height="12" rx="2"/>
+    <rect x="580" y="150" width="20" height="12" rx="2"/>
+    <rect x="610" y="150" width="20" height="12" rx="2"/>
+
+    <!-- Vertical Right Side LEDs -->
+    <rect x="610" y="200" width="20" height="12" rx="2"/>
+    <rect x="610" y="250" width="20" height="12" rx="2"/>
+    <rect x="610" y="300" width="20" height="12" rx="2"/>
+    <rect x="610" y="350" width="20" height="12" rx="2"/>
+    <rect x="610" y="400" width="20" height="12" rx="2"/>
+    <rect x="610" y="440" width="20" height="12" rx="2"/>
+  </g>
+
+  <!-- Wiring Connections (Red & Blue lines) -->
+  <path d="M 190 156 Q 300 170 620 156" fill="none" stroke="#ef4444" stroke-width="3"/>
+  <path d="M 190 160 Q 300 176 620 160" fill="none" stroke="#3b82f6" stroke-width="3"/>
+  <path d="M 620 160 L 620 446" fill="none" stroke="#ef4444" stroke-width="3"/>
+
+  <!-- Waterproof LED Driver Power Box -->
+  <rect x="220" y="280" width="160" height="90" rx="8" fill="#334155" stroke="#64748b" stroke-width="3"/>
+  <text x="300" y="325" text-anchor="middle" font-family="sans-serif" font-weight="700" font-size="12" fill="#e2e8f0">IP67 LED DRIVER</text>
+
+  <!-- Title Badge -->
+  <rect x="420" y="490" width="230" height="34" rx="6" fill="#f59e0b"/>
+  <text x="535" y="512" text-anchor="middle" font-family="sans-serif" font-weight="800" font-size="13" fill="#0f172a" letter-spacing="1">LED MODULE &amp; WIRING TEST</text>
+</svg>

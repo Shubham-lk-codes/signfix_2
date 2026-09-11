@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 500" width="100%" height="100%">
+  <defs>
+    <linearGradient id="w1Bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0a192f"/>
+      <stop offset="100%" stop-color="#112240"/>
+    </linearGradient>
+    <filter id="glow1">
+      <feGaussianBlur stdDeviation="8" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <rect width="800" height="500" fill="url(#w1Bg)"/>
+  
+  <!-- Commercial Facade Outline -->
+  <rect x="80" y="80" width="640" height="340" rx="12" fill="#0d1b2a" stroke="#1e3a8a" stroke-width="3"/>
+  
+  <!-- Large 3D LED Sign Board -->
+  <rect x="140" y="140" width="520" height="200" rx="10" fill="#03071e" stroke="#ffb000" stroke-width="3" filter="url(#glow1)"/>
+  
+  <text x="400" y="260" text-anchor="middle" font-family="'Bricolage Grotesque', sans-serif" font-weight="900" font-size="64" letter-spacing="6" fill="#ffb000" filter="url(#glow1)">COMMERCIAL LED</text>
+  
+  <!-- Bucket Truck Lift Arm Graphic -->
+  <path d="M 100 480 L 260 360 L 320 250" stroke="#f59e0b" stroke-width="8" stroke-linecap="round" fill="none"/>
+  <rect x="300" y="220" width="60" height="60" fill="#f59e0b" rx="4"/>
+  <circle cx="330" cy="250" r="14" fill="#ffffff"/>
+
+  <!-- Category Tag -->
+  <rect x="140" y="380" width="180" height="28" rx="14" fill="#3b82f6"/>
+  <text x="230" y="399" text-anchor="middle" font-family="sans-serif" font-weight="700" font-size="12" fill="#ffffff">LED REPAIR CASE STUDY</text>
+</svg>

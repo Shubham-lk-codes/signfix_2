@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600" width="100%" height="100%">
+  <defs>
+    <linearGradient id="beforeBg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1a1512"/>
+      <stop offset="50%" stop-color="#2b231d"/>
+      <stop offset="100%" stop-color="#120e0c"/>
+    </linearGradient>
+    
+    <filter id="rustNoise">
+      <feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="3" result="noise"/>
+      <feColorMatrix type="matrix" values="0.4 0 0 0 0.3  0 0.2 0 0 0.15  0 0 0.1 0 0.1  0 0 0 0.4 0"/>
+    </filter>
+
+    <filter id="flicker">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+    </filter>
+  </defs>
+
+  <rect width="800" height="600" fill="url(#beforeBg)"/>
+  
+  <!-- Weathered Brick Wall Background -->
+  <g opacity="0.25">
+    <pattern id="brick" width="60" height="30" patternUnits="userSpaceOnUse">
+      <rect width="58" height="13" fill="#3a2e26"/>
+      <rect x="30" y="15" width="58" height="13" fill="#2d231b"/>
+    </pattern>
+    <rect width="800" height="600" fill="url(#brick)"/>
+  </g>
+
+  <!-- Rust / Aging Overlay -->
+  <rect width="800" height="600" filter="url(#rustNoise)" opacity="0.4"/>
+
+  <!-- Damaged Frame -->
+  <rect x="100" y="140" width="600" height="320" rx="8" fill="#1f1a17" stroke="#4a3b30" stroke-width="6"/>
+  <path d="M 120 140 L 220 280 L 100 320" fill="none" stroke="#0d0a08" stroke-width="4" opacity="0.7"/>
+
+  <!-- Burnt out neon tube / LED acrylic face -->
+  <rect x="130" y="170" width="540" height="260" rx="6" fill="#120e0b" stroke="#33271e" stroke-width="2"/>
+  
+  <!-- Cracks on fascia -->
+  <path d="M 240 190 L 290 260 L 270 340 L 320 400" stroke="#000000" stroke-width="3" fill="none" opacity="0.8"/>
+  <path d="M 520 220 L 480 300 L 510 380" stroke="#000000" stroke-width="3" fill="none" opacity="0.8"/>
+
+  <!-- Faded letters with partial flickering light -->
+  <g opacity="0.4">
+    <!-- Burnt letter "S" -->
+    <text x="220" y="320" font-family="sans-serif" font-weight="900" font-size="90" fill="#3a3028" stroke="#1f1812" stroke-width="2">S</text>
+    <!-- Flickering letter "I" -->
+    <text x="310" y="320" font-family="sans-serif" font-weight="900" font-size="90" fill="#e67e22" opacity="0.6" filter="url(#flicker)">I</text>
+    <!-- Dark letter "G" -->
+    <text x="370" y="320" font-family="sans-serif" font-weight="900" font-size="90" fill="#2b2018">G</text>
+    <!-- Dim letter "N" -->
+    <text x="470" y="320" font-family="sans-serif" font-weight="900" font-size="90" fill="#e67e22" opacity="0.3">N</text>
+  </g>
+
+  <!-- Burnt LED modules warning tag -->
+  <rect x="130" y="465" width="220" height="32" rx="4" fill="#801818" opacity="0.9"/>
+  <text x="240" y="486" text-anchor="middle" font-family="sans-serif" font-weight="700" font-size="13" fill="#ffffff" letter-spacing="1">BEFORE: FADED &amp; FAULTY</text>
+</svg>

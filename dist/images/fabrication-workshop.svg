@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600" width="100%" height="100%">
+  <defs>
+    <linearGradient id="fabBg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0f172a"/>
+      <stop offset="100%" stop-color="#1e293b"/>
+    </linearGradient>
+    <filter id="laserGlow">
+      <feGaussianBlur stdDeviation="6" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <rect width="800" height="600" fill="url(#fabBg)"/>
+
+  <!-- Workshop Floor Grid -->
+  <path d="M 0 450 L 800 450 M 0 520 L 800 520" stroke="rgba(255,255,255,0.08)" stroke-width="2"/>
+  
+  <!-- CNC Laser Cutting Machine Bed -->
+  <rect x="80" y="220" width="640" height="260" rx="8" fill="#334155" stroke="#475569" stroke-width="4"/>
+  <rect x="110" y="240" width="580" height="220" fill="#0f172a"/>
+  
+  <!-- Metal Grid on Machine Bed -->
+  <g opacity="0.3">
+    <line x1="150" y1="240" x2="150" y2="460" stroke="#00d2ff" stroke-width="1"/>
+    <line x1="250" y1="240" x2="250" y2="460" stroke="#00d2ff" stroke-width="1"/>
+    <line x1="350" y1="240" x2="350" y2="460" stroke="#00d2ff" stroke-width="1"/>
+    <line x1="450" y1="240" x2="450" y2="460" stroke="#00d2ff" stroke-width="1"/>
+    <line x1="550" y1="240" x2="550" y2="460" stroke="#00d2ff" stroke-width="1"/>
+    <line x1="650" y1="240" x2="650" y2="460" stroke="#00d2ff" stroke-width="1"/>
+  </g>
+
+  <!-- 3D Channel Letter Being Fabricated -->
+  <path d="M 300 280 L 420 280 L 440 320 L 480 320 L 500 280 L 600 280 L 520 420 L 380 420 Z" fill="none" stroke="#ffb000" stroke-width="8" filter="url(#laserGlow)"/>
+
+  <!-- Laser Cutting Head -->
+  <rect x="430" y="160" width="40" height="120" fill="#64748b"/>
+  <polygon points="440,280 460,280 450,305" fill="#ff4500" filter="url(#laserGlow)"/>
+  
+  <!-- Laser Sparks -->
+  <circle cx="450" cy="305" r="12" fill="#ffea00" filter="url(#laserGlow)"/>
+  <line x1="450" y1="305" x2="420" y2="280" stroke="#ffb000" stroke-width="3"/>
+  <line x1="450" y1="305" x2="480" y2="270" stroke="#ffea00" stroke-width="2"/>
+  <line x1="450" y1="305" x2="470" y2="330" stroke="#ff4500" stroke-width="3"/>
+  
+  <!-- Label Badge -->
+  <rect x="110" y="170" width="220" height="34" rx="6" fill="#0284c7"/>
+  <text x="220" y="192" text-anchor="middle" font-family="sans-serif" font-weight="700" font-size="13" fill="#ffffff" letter-spacing="1">IN-HOUSE FABRICATION</text>
+</svg>

@@ -1,23 +1,32 @@
 import { useEffect, useState } from 'react';
 
-const adminBase = '/admin';
-function appPath() {
-  const pathname = window.location.pathname;
-  if (pathname === adminBase || pathname === `${adminBase}/`) return '/';
-  return pathname.startsWith(`${adminBase}/`) ? pathname.slice(adminBase.length) : pathname;
-}
-
 export default function useRoute() {
-  const [path, setPath] = useState(appPath);
+  const [path, setPath] = useState(() => window.location.pathname);
+
   useEffect(() => {
-    const listener = () => setPath(appPath());
-    addEventListener('popstate', listener);
-    return () => removeEventListener('popstate', listener);
+    const listener = () => setPath(window.location.pathname);
+    window.addEventListener('popstate', listener);
+    return () => window.removeEventListener('popstate', listener);
   }, []);
+
   const navigate = (next) => {
-    const target = window.location.pathname.startsWith(adminBase) ? `${adminBase}${next === '/' ? '' : next}` : next;
-    history.pushState({}, '', target);
-    setPath(appPath());
+    if (typeof next !== 'string') return;
+    if (next.startsWith('http://') || next.startsWith('https://')) {
+      window.location.href = next;
+      return;
+    }
+
+    const currentPath = window.location.pathname;
+    let target = next;
+
+    if (currentPath.startsWith('/admin') && !next.startsWith('/admin') && !next.startsWith('/asset/scan')) {
+      target = `/admin${next === '/' ? '' : next}`;
+    }
+
+    window.history.pushState({}, '', target);
+    setPath(window.location.pathname);
+    window.scrollTo(0, 0);
   };
+
   return { path, navigate };
 }
