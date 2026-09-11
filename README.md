@@ -58,9 +58,12 @@ Never commit `.env` or use the demo credentials in production.
 ## Production deployment
 
 The production Vite build is emitted to `dist` with host-rooted asset URLs.
-Express serves the same SPA at both `/` and `/admin` (including deep-link
-fallbacks) and serves the API below `/api` from the same process. Vercel proxies
-its `/api/*` requests to the Render service. See
+Express serves the admin SPA at `/admin` (including deep-link fallbacks) and
+the API below `/api`. When `MARKETING_WEB_ROOT` points to a separate Next.js
+static export (or the sibling `signfix_web/out` build exists), Express serves
+that website at `/`; without either, the previous
+admin-at-root behavior remains available for standalone deployments. Vercel
+proxies its `/api/*` requests to the Render service. See
 [`docs/production-deployment.md`](docs/production-deployment.md) for Render,
 Vercel, PM2, Passenger/cPanel, reverse-proxy, and validation details.
 

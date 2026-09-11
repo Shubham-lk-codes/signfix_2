@@ -43,12 +43,15 @@ app.use('/api', routes);
 // Never let an unknown API request fall through to the SPA HTML response.
 app.use('/api', notFound);
 
-const webBuild = path.resolve(__dirname, '../dist');
-const webIndex = path.join(webBuild, 'index.html');
+const adminBuild = path.resolve(__dirname, '../dist');
+const adminIndex = path.join(adminBuild, 'index.html');
+const configuredMarketingBuild = process.env.MARKETING_WEB_ROOT?.trim();
+const marketingBuild = path.resolve(configuredMarketingBuild || path.resolve(__dirname, '../../signfix_web/out'));
+const marketingIndex = path.join(marketingBuild, 'index.html');
 
 // CloudLinux/cPanel Passenger does not always run build steps automatically.
 // Auto-build the SPA with Vite if dist/index.html is missing on server start.
-if (!fs.existsSync(webIndex)) {
+if (!fs.existsSync(adminIndex)) {
   try {
     const viteCli = path.join(__dirname, '../node_modules/vite/bin/vite.js');
     if (fs.existsSync(viteCli)) {
@@ -64,17 +67,85 @@ if (!fs.existsSync(webIndex)) {
   }
 }
 
-if (fs.existsSync(webIndex)) {
-  app.use('/assets', express.static(path.join(webBuild, 'assets'), { maxAge: '1y', immutable: true }));
-  app.use(express.static(webBuild, { index: false, maxAge: '1h' }));
-  // The React router deliberately supports both the canonical root URL and
-  // the legacy `/admin` prefix. Catch-all sends index.html for all non-API paths.
+const hasAdminBuild = fs.existsSync(adminIndex);
+const hasMarketingBuild = fs.existsSync(marketingIndex);
+
+if (!hasAdminBuild && process.env.NODE_ENV === 'production') {
+  throw new Error(`Admin production build is missing at ${adminIndex}; run npm run build before starting the server`);
+}
+
+if (configuredMarketingBuild && !hasMarketingBuild && process.env.NODE_ENV === 'production') {
+  throw new Error(`Marketing production build is missing at ${marketingIndex}; build signfix_web before starting the server`);
+}
+
+if (hasAdminBuild) {
+  // Vite currently emits root-based asset URLs. Next.js uses /_next, so the
+  // two generated asset namespaces do not collide.
+  app.use('/assets', express.static(path.join(adminBuild, 'assets'), { maxAge: '1y', immutable: true }));
+
+  const firebaseWorker = path.join(adminBuild, 'firebase-messaging-sw.js');
+  if (fs.existsSync(firebaseWorker)) {
+    app.get('/firebase-messaging-sw.js', (_req, res, next) => {
+      res.set('Cache-Control', 'no-cache');
+      res.sendFile(firebaseWorker, (error) => error && next(error));
+    });
+  }
+}
+
+if (hasMarketingBuild) {
+  // The admin SPA owns only /admin and its nested browser routes.
+  app.get(/^\/admin(?:\/.*)?$/, (_req, res, next) => {
+    if (!hasAdminBuild) return next();
+    res.set('Cache-Control', 'no-cache');
+    return res.sendFile(adminIndex, (error) => error && next(error));
+  });
+
+  // Serve hashed Next.js files aggressively, while keeping generated HTML
+  // fresh. `extensions` supports clean exported URLs such as /about.
+  app.use('/_next/static', express.static(path.join(marketingBuild, '_next/static'), { maxAge: '1y', immutable: true }));
+
+  // A Next.js export can contain both `about.html` and an `about/` directory
+  // containing RSC data. Resolve the HTML file before express.static sees the
+  // directory, otherwise it redirects to /about/ and misses the page.
+  app.get(/.*/, (req, res, next) => {
+    let route;
+    try {
+      route = decodeURIComponent(req.path).replace(/\\/g, '/').replace(/^\/+|\/+$/g, '');
+    } catch (_) {
+      return next();
+    }
+    if (!route || route.includes('\0') || path.posix.extname(route)) return next();
+
+    const htmlFile = path.resolve(marketingBuild, `${route}.html`);
+    const relativeFile = path.relative(marketingBuild, htmlFile);
+    const isInsideBuild = relativeFile && relativeFile !== '..' && !relativeFile.startsWith(`..${path.sep}`) && !path.isAbsolute(relativeFile);
+    if (!isInsideBuild || !fs.existsSync(htmlFile) || !fs.statSync(htmlFile).isFile()) return next();
+
+    res.set('Cache-Control', 'no-cache');
+    return res.sendFile(htmlFile, (error) => error && next(error));
+  });
+
+  app.use(express.static(marketingBuild, {
+    extensions: ['html'],
+    maxAge: '1h',
+    setHeaders(res, filePath) {
+      if (path.extname(filePath).toLowerCase() === '.html') res.set('Cache-Control', 'no-cache');
+    },
+  }));
+
+  const marketingNotFound = path.join(marketingBuild, '404.html');
+  app.get(/.*/, (_req, res, next) => {
+    if (!fs.existsSync(marketingNotFound)) return next();
+    res.status(404).set('Cache-Control', 'no-cache');
+    return res.sendFile(marketingNotFound, (error) => error && next(error));
+  });
+} else if (hasAdminBuild) {
+  // Backward-compatible fallback for deployments that contain only this
+  // repository: serve the admin SPA at both / and /admin.
   app.get(/.*/, (_req, res, next) => {
     res.set('Cache-Control', 'no-cache');
-    res.sendFile(webIndex, (error) => error && next(error));
+    res.sendFile(adminIndex, (error) => error && next(error));
   });
-} else if (process.env.NODE_ENV === 'production') {
-  throw new Error(`Production build is missing at ${webIndex}; run npm run build before starting the server`);
 } else {
   app.get('/', (_req, res) => res.json({ name: 'SignFix API', status: 'ok', health: '/api/health' }));
 }

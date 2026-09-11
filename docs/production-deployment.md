@@ -1,9 +1,11 @@
 # SignFix production deployment
 
 This deployment keeps one Node process on `127.0.0.1:5000`. Express serves the
-API at `/api/*` and the same Vite application at both `/` and `/admin/*`. The
-public web server terminates the existing TLS certificate and proxies requests
-to Node.
+API at `/api/*`, the Vite admin application at `/admin/*`, and, when
+`MARKETING_WEB_ROOT` is configured or the sibling `signfix_web/out` build is
+present, a separate Next.js static export at `/`.
+The public web server terminates the existing TLS certificate and proxies
+requests to Node.
 
 ## Production environment
 
@@ -19,6 +21,7 @@ JWT_ISSUER=signfix-api
 JWT_AUDIENCE=signfix-web
 CORS_ORIGIN=https://signfix.me
 VITE_API_URL=
+MARKETING_WEB_ROOT=/home/signfixm/signfix_web/out
 APP_URL=https://signfix.me/admin
 PUBLIC_APP_URL=https://signfix.me
 ```
@@ -86,13 +89,16 @@ ProxyPassReverse / http://127.0.0.1:5000/
 
 Validate with `apachectl configtest` before reloading Apache. On LiteSpeed/shared
 hosting where virtual-host changes are unavailable, use cPanel's **Setup Node.js
-App** / Passenger integration: set the application root to
-`repositories/signfix_2`, the application URL to `https://signfix.me`, the
-startup file to `app.js`, and `NODE_ENV=production`. Passenger owns the listener
-in this mode, so `HOST`, `PORT`, PM2, and a reverse-proxy rule are not used. Use
-either Passenger or PM2 for the public application, never both. Configure PM2
-only when the host provides SSH and an editable LiteSpeed external-app/proxy
-mapping to `127.0.0.1:5000`.
+App** / Passenger integration. Keep the repositories checked out separately,
+build the Next.js site in `/home/signfixm/signfix_web` to create `out`, and build
+the admin/API repository in `/home/signfixm/signfix` to create `dist`. Register
+only `/home/signfixm/signfix` as the Node application for `https://signfix.me/`,
+use `app.js` as its startup file, and set `MARKETING_WEB_ROOT` to
+`/home/signfixm/signfix_web/out`. Do not register both repositories at the same
+application URL. Passenger owns the listener in this mode, so `HOST`, `PORT`,
+PM2, and a reverse-proxy rule are not used. Use either Passenger or PM2 for the
+public application, never both. Configure PM2 only when the host provides SSH
+and an editable LiteSpeed external-app/proxy mapping to `127.0.0.1:5000`.
 
 The `app.js` entry point exports the Express application for Passenger and
 replaces the generated cPanel page that says `It works! NodeJS ...`. Run
