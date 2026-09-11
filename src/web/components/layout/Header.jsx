@@ -34,7 +34,7 @@ export function Header() {
   return (
     <>
       <header
-        className={`sticky top-0 z-50 bg-white/90 backdrop-blur-md transition-shadow duration-300 ${
+        className={`block h-auto p-0 sticky top-0 z-50 bg-white/90 backdrop-blur-md transition-shadow duration-300 ${
           scrolled ? "shadow-[0_4px_24px_-8px_rgba(7,26,45,0.12)] border-b border-transparent" : "border-b border-line"
         }`}
       >
