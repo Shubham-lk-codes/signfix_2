@@ -102,9 +102,17 @@ and an editable LiteSpeed external-app/proxy mapping to `127.0.0.1:5000`.
 
 The `app.js` entry point exports the Express application for Passenger and
 replaces the generated cPanel page that says `It works! NodeJS ...`. Run
-`npm run build` after every upload because `dist` is generated and intentionally
-not committed. Do not add an `.htaccess` proxy until the provider confirms that
-proxy directives are allowed.
+`npm run build` after every frontend source change and deploy the resulting
+`dist` directory with the release. Do not add an `.htaccess` proxy until the
+provider confirms that proxy directives are allowed.
+
+If `POST /api/*` returns `405 Method Not Allowed` with `Allow: GET, HEAD`, the
+marketing repository's static `server.js` is still registered at the public
+application URL. Stop that Node application and register only
+`/home/signfixm/signfix` at the root URL with `app.js` as its startup file. Set
+`MARKETING_WEB_ROOT=/home/signfixm/signfix_web/out`; the Express application
+will then serve the marketing export at `/`, the admin SPA at `/admin`, and the
+API at `/api`.
 
 ## Render and Vercel
 
